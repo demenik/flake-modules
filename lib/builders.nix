@@ -3,13 +3,13 @@
   home-manager,
   lib,
   ...
-}: let
-  loader = import ./module-loader.nix {inherit lib;};
-in {
+}: {
   mkHost = {
     hostPath,
     inputs,
   }: let
+    loader = import ./module-loader.nix {inherit lib;};
+
     host = loader.loadHost hostPath;
     users = map loader.loadUser host.users;
 
@@ -70,6 +70,8 @@ in {
     userPath,
     inputs,
   }: let
+    loader = import ./module-loader.nix {inherit lib;};
+
     host = loader.loadHost hostPath;
     user = loader.loadUser userPath;
 

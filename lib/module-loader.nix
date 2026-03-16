@@ -1,4 +1,8 @@
-{lib, ...}: rec {
+{
+  lib,
+  inputs ? {},
+  ...
+}: rec {
   getFile = path:
     if builtins.isPath path || builtins.isString path
     then toString path
@@ -7,6 +11,7 @@
   evalModule = schema: path:
     (lib.evalModules {
       modules = [schema path];
+      specialArgs = {inherit inputs;};
     }).config;
 
   loadHost = path: evalModule ./schemas/host.nix path;
