@@ -26,5 +26,14 @@ with lib; {
       type = types.deferredModule;
       default = {};
     };
+
+    secrets = mkOption {
+      default = {};
+      type = types.attrsOf (lib.types.submodule {
+        options = {
+          path = mkOption {type = types.path;};
+        };
+      });
+    };
   };
 }

@@ -3,7 +3,9 @@
   home-manager,
   lib,
   ...
-}: {
+}: let
+  secrets = import ./secrets.nix {inherit lib;};
+in {
   mkHost = {
     hostPath,
     inputs,
@@ -33,6 +35,11 @@
         ++ (map (m: m.nixos) modules)
         ++ [host.nixosConfig]
         ++ (map (u: u.nixosConfig) users)
+        # === Secrets ===
+        ++ [
+          inputs.sops-nix.nixosModules.sops
+          (secrets.mkNixosConfig {inherit host modules;})
+        ]
         # === NixOS defaults ===
         ++ (map (user: import ./defaults/nixos-user.nix {inherit user lib;}) users)
         # === Home-Manager ===
@@ -51,6 +58,11 @@
                   ++ (map (m: m.home) hostModules)
                   ++ (map (m: m.home) (map loader.loadModule user.modules))
                   ++ [host.homeConfig user.homeConfig]
+                  # === Secrets ===
+                  ++ [
+                    inputs.sops-nix.homeModules.sops
+                    (secrets.mkHomeConfig {inherit host user modules;})
+                  ]
                   # === HM defaults ===
                   ++ [
                     (import ./defaults/hm.nix {
@@ -105,6 +117,11 @@
         # === HM modules ===
         ++ (map (m: m.home) modules)
         ++ [host.homeConfig user.homeConfig]
+        # === Secrets ===
+        ++ [
+          inputs.sops-nix.homeModules.sops
+          (secrets.mkHomeConfig {inherit host user modules;})
+        ]
         # === HM defaults ===
         ++ [
           (import ./defaults/hm.nix {

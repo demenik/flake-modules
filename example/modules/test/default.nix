@@ -8,6 +8,11 @@
     };
   };
 
+  secrets.test = {
+    required = false;
+    description = "Test Secret";
+  };
+
   nixos = {config, ...}: {
     environment.etc."nixos-test.txt".text = config.demenix.test.message;
   };

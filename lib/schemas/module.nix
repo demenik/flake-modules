@@ -23,5 +23,22 @@ with lib; {
       type = types.deferredModule;
       default = {};
     };
+
+    # === Secrets ===
+    secrets = mkOption {
+      default = {};
+      type = types.attrsOf (types.submodule {
+        options = {
+          description = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+          };
+          required = mkOption {
+            type = types.bool;
+            default = true;
+          };
+        };
+      });
+    };
   };
 }
