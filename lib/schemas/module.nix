@@ -13,6 +13,10 @@ with lib; {
       type = types.listOf types.path;
       default = [];
     };
+    moduleConfig = mkOption {
+      type = types.deferredModule;
+      default = {};
+    };
 
     # === NixOS ===
     nixos = mkOption {

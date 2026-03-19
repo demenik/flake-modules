@@ -30,6 +30,7 @@ in {
         [{system.stateVersion = host.stateVersion;}]
         # === Module config ===
         ++ options
+        ++ (map (m: m.moduleConfig) modules)
         ++ [host.moduleConfig]
         ++ (map (u: u.moduleConfig) users)
         # === NixOS modules ===
@@ -56,6 +57,8 @@ in {
                   [{home.stateVersion = host.hmStateVersion;}]
                   # === Module config ===
                   ++ options
+                  ++ (map (m: m.moduleConfig) hostModules)
+                  ++ (map (m: m.moduleConfig) userModules)
                   ++ [host.moduleConfig user.moduleConfig]
                   # === HM modules ===
                   ++ (map (m: m.home) hostModules)
@@ -115,6 +118,7 @@ in {
         [{home.stateVersion = host.hmStateVersion;}]
         # === Module config ===
         ++ options
+        ++ (map (m: m.moduleConfig) modules)
         ++ [host.moduleConfig user.moduleConfig]
         # === HM modules ===
         ++ (map (m: m.home) modules)
