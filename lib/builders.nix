@@ -52,6 +52,12 @@ in {
         ++ [
           home-manager.nixosModules.home-manager
           {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              extraSpecialArgs = {inherit inputs host;};
+            };
+
             home-manager.users = lib.listToAttrs (
               map (user: let
                 userModules = loader.resolveModules (host.modules ++ user.modules);
