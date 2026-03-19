@@ -2,6 +2,7 @@
   nixpkgs,
   home-manager,
   lib,
+  lib-inputs,
   ...
 }: let
   secrets = import ./secrets.nix {inherit lib;};
@@ -37,7 +38,7 @@ in {
         ++ (map (u: u.nixosConfig) users)
         # === Secrets ===
         ++ [
-          inputs.sops-nix.nixosModules.sops
+          lib-inputs.sops-nix.nixosModules.sops
           (secrets.mkNixosConfig {inherit host modules;})
         ]
         # === NixOS defaults ===
@@ -62,7 +63,7 @@ in {
                   ++ [host.homeConfig user.homeConfig]
                   # === Secrets ===
                   ++ [
-                    inputs.sops-nix.homeModules.sops
+                    lib-inputs.sops-nix.homeModules.sops
                     (secrets.mkHomeConfig {inherit host user modules;})
                   ]
                   # === HM defaults ===
@@ -120,7 +121,7 @@ in {
         ++ [host.homeConfig user.homeConfig]
         # === Secrets ===
         ++ [
-          inputs.sops-nix.homeModules.sops
+          lib-inputs.sops-nix.homeModules.sops
           (secrets.mkHomeConfig {inherit host user modules;})
         ]
         # === HM defaults ===

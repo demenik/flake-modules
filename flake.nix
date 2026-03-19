@@ -22,6 +22,7 @@
     lib = import ./lib {
       inherit nixpkgs home-manager;
       inherit (nixpkgs) lib;
+      lib-inputs = inputs;
     };
 
     hostsDir = ./example/hosts;

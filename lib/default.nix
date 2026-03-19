@@ -2,9 +2,10 @@
   nixpkgs,
   home-manager,
   lib,
+  lib-inputs,
 }: let
   builders = import ./builders.nix {
-    inherit nixpkgs home-manager lib;
+    inherit nixpkgs home-manager lib lib-inputs;
   };
   discovery = import ./discovery.nix {
     inherit nixpkgs lib;
