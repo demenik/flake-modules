@@ -28,7 +28,7 @@ in {
   in
     nixpkgs.lib.nixosSystem {
       inherit (host) system;
-      specialArgs = {inherit inputs host;};
+      specialArgs = {inherit inputs host users;};
 
       modules =
         [{system.stateVersion = host.stateVersion;}]
@@ -55,7 +55,7 @@ in {
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              extraSpecialArgs = {inherit inputs host;};
+              extraSpecialArgs = {inherit inputs host users;};
             };
 
             home-manager.users = lib.listToAttrs (
@@ -125,7 +125,10 @@ in {
   in
     home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
-      extraSpecialArgs = {inherit inputs host user;};
+      extraSpecialArgs = {
+        inherit inputs host user;
+        users = [user];
+      };
 
       modules =
         [{home.stateVersion = host.hmStateVersion;}]
