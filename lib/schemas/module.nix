@@ -8,6 +8,12 @@ with lib; {
     };
     moduleOptions = mkOption {default = {};};
 
+    # === Modules ===
+    modules = mkOption {
+      type = types.listOf types.path;
+      default = [];
+    };
+
     # === NixOS ===
     nixos = mkOption {
       type = types.deferredModule;

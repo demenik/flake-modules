@@ -15,9 +15,9 @@ in {
     host = loader.loadHost hostPath;
     users = map loader.loadUser host.users;
 
-    hostModules = map loader.loadModule host.modules;
-    userModules = lib.flatten (map (u: map loader.loadModule u.modules) users);
-    modules = hostModules ++ userModules;
+    hostModules = loader.resolveModules host.modules;
+    modulePaths = host.modules ++ (lib.flatten (map (u: u.modules) users));
+    modules = loader.resolveModules modulePaths;
 
     options = map (m: {options = m.moduleOptions;}) modules;
   in
@@ -47,7 +47,9 @@ in {
           home-manager.nixosModules.home-manager
           {
             home-manager.users = lib.listToAttrs (
-              map (user: {
+              map (user: let
+                userModules = loader.resolveModules user.modules;
+              in {
                 name = user.username;
                 value.imports =
                   [{home.stateVersion = host.hmStateVersion;}]
@@ -56,7 +58,7 @@ in {
                   ++ [host.moduleConfig user.moduleConfig]
                   # === HM modules ===
                   ++ (map (m: m.home) hostModules)
-                  ++ (map (m: m.home) (map loader.loadModule user.modules))
+                  ++ (map (m: m.home) userModules)
                   ++ [host.homeConfig user.homeConfig]
                   # === Secrets ===
                   ++ [
@@ -89,9 +91,8 @@ in {
 
     pkgs = nixpkgs.legacyPackages.${host.system};
 
-    hostModules = map loader.loadModule host.modules;
-    userModules = map loader.loadModule user.modules;
-    modules = hostModules ++ userModules;
+    modulePaths = host.modules ++ user.modules;
+    modules = loader.resolveModules modulePaths;
 
     options = map (m: {options = m.moduleOptions;}) modules;
 
