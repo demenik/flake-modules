@@ -11,7 +11,7 @@ in {
     hostPath,
     inputs,
   }: let
-    loader = import ./module-loader.nix {inherit lib;};
+    loader = import ./module-loader.nix {inherit lib inputs;};
 
     host = loader.loadHost hostPath;
     users = map loader.loadUser host.users;
@@ -90,7 +90,7 @@ in {
     userPath,
     inputs,
   }: let
-    loader = import ./module-loader.nix {inherit lib;};
+    loader = import ./module-loader.nix {inherit lib inputs;};
 
     host = loader.loadHost hostPath;
     user = loader.loadUser userPath;
