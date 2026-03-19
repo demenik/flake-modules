@@ -3,11 +3,6 @@
   inputs ? {},
   ...
 }: rec {
-  getFile = path:
-    if builtins.isPath path || builtins.isString path
-    then toString path
-    else "inline";
-
   evalModule = schema: path:
     (lib.evalModules {
       modules = [schema path];
