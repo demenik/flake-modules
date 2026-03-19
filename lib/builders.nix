@@ -16,11 +16,15 @@ in {
     host = loader.loadHost hostPath;
     users = map loader.loadUser host.users;
 
-    hostModules = loader.resolveModules host.modules;
     modulePaths = host.modules ++ (lib.flatten (map (u: u.modules) users));
     modules = loader.resolveModules modulePaths;
 
-    options = map (m: {options = m.moduleOptions;}) modules;
+    options =
+      map (m: {
+        _file = "moduleOptions in '${m.name}'";
+        options = m.moduleOptions;
+      })
+      modules;
   in
     nixpkgs.lib.nixosSystem {
       inherit (host) system;
@@ -50,18 +54,16 @@ in {
           {
             home-manager.users = lib.listToAttrs (
               map (user: let
-                userModules = loader.resolveModules user.modules;
+                userModules = loader.resolveModules (host.modules ++ user.modules);
               in {
                 name = user.username;
                 value.imports =
                   [{home.stateVersion = host.hmStateVersion;}]
                   # === Module config ===
                   ++ options
-                  ++ (map (m: m.moduleConfig) hostModules)
                   ++ (map (m: m.moduleConfig) userModules)
                   ++ [host.moduleConfig user.moduleConfig]
                   # === HM modules ===
-                  ++ (map (m: m.home) hostModules)
                   ++ (map (m: m.home) userModules)
                   ++ [host.homeConfig user.homeConfig]
                   # === Secrets ===
@@ -98,7 +100,12 @@ in {
     modulePaths = host.modules ++ user.modules;
     modules = loader.resolveModules modulePaths;
 
-    options = map (m: {options = m.moduleOptions;}) modules;
+    options =
+      map (m: {
+        _file = "moduleOptions in '${m.name}'";
+        options = m.moduleOptions;
+      })
+      modules;
 
     mkModuleWarning = module: let
       baseMsg = "Module '${module.name}' has NixOS configuration, which doesn't get applied in standalone HM mode.";
