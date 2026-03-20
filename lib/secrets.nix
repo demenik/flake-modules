@@ -11,7 +11,12 @@
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault ["/etc/ssh/ssh_host_ed25519_key"];
-      secrets = lib.mapAttrs (n: v: {sopsFile = v.path;}) resolvedSecrets;
+      secrets =
+        lib.mapAttrs (n: v: {
+          sopsFile = v.path;
+          format = "binary";
+        })
+        resolvedSecrets;
     };
 
     assertions =
