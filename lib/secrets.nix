@@ -3,13 +3,15 @@
 
   mkNixosConfig = {
     host,
+    users ? [],
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
+    resolvedSecrets = lib.foldl (acc: u: acc // u.secrets) host.secrets users;
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault ["/etc/ssh/ssh_host_ed25519_key"];
-      secrets = lib.mapAttrs (n: v: {sopsFile = v.path;}) host.secrets;
+      secrets = lib.mapAttrs (n: v: {sopsFile = v.path;}) resolvedSecrets;
     };
 
     assertions =
@@ -19,7 +21,7 @@
           then " (${req.description})"
           else "";
       in {
-        assertion = (!req.required) || (host.secrets ? ${name});
+        assertion = (!req.required) || (resolvedSecrets ? ${name});
         message = "NixOS: Module requires the secret '${name}'${description}, but it is not configured.";
       })
       declaredSecrets;

@@ -44,7 +44,7 @@ in {
         # === Secrets ===
         ++ [
           lib-inputs.sops-nix.nixosModules.sops
-          (secrets.mkNixosConfig {inherit host modules;})
+          (secrets.mkNixosConfig {inherit host modules users;})
         ]
         # === NixOS defaults ===
         ++ (map (user: import ./defaults/nixos-user.nix {inherit user lib;}) users)
