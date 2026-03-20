@@ -30,6 +30,10 @@ with lib; {
       type = types.attrsOf (lib.types.submodule {
         options = {
           path = mkOption {type = types.path;};
+          key = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+          };
         };
       });
     };

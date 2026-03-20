@@ -14,7 +14,10 @@
       secrets =
         lib.mapAttrs (n: v: {
           sopsFile = v.path;
-          format = "binary";
+          key =
+            if v.key != null
+            then v.key
+            else n;
         })
         resolvedSecrets;
     };
