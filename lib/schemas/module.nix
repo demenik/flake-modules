@@ -43,9 +43,10 @@ with lib; {
             type = types.nullOr types.str;
             default = null;
           };
-          required = mkOption {
-            type = types.bool;
-            default = true;
+          requiredBy = mkOption {
+            type = types.enum ["nixos" "home" "both" "none"];
+            default = "home";
+            description = "Scope of the secret. 'nixos' and 'both' must be configured in the host config, while 'home' is configured in the user config";
           };
         };
       });

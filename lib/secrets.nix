@@ -1,38 +1,44 @@
 {lib, ...}: rec {
   getDeclaredSecrets = modules: lib.foldl (acc: m: acc // m.secrets) {} modules;
 
+  mkSopsAttrs = secrets:
+    lib.mapAttrs (n: v: {
+      sopsFile = v.path;
+      key =
+        if (v.key != null)
+        then v.key
+        else n;
+    })
+    secrets;
+
   mkNixosConfig = {
     host,
-    users ? [],
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
-    resolvedSecrets = lib.foldl (acc: u: acc // u.secrets) host.secrets users;
+    hostSecrets = host.secrets or {};
+
+    nixosSecrets =
+      lib.filterAttrs
+      (n: req: req.requiredBy == "nixos" || req.requiredBy == "both")
+      declaredSecrets;
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault ["/etc/ssh/ssh_host_ed25519_key"];
-      secrets =
-        lib.mapAttrs (n: v: {
-          sopsFile = v.path;
-          key =
-            if v.key != null
-            then v.key
-            else n;
-        })
-        resolvedSecrets;
+      secrets = mkSopsAttrs hostSecrets;
     };
 
     assertions =
       lib.mapAttrsToList (name: req: let
         description =
           if req.description != null
-          then " (${req.description})"
+          then "${req.description}, "
           else "";
       in {
-        assertion = (!req.required) || (resolvedSecrets ? ${name});
-        message = "NixOS: Module requires the secret '${name}'${description}, but it is not configured.";
+        assertion = hostSecrets ? ${name};
+        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.requiredBy}), but it is not configured.";
       })
-      declaredSecrets;
+      nixosSecrets;
   };
 
   mkHomeConfig = {
@@ -41,7 +47,14 @@
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
-    resolvedSecrets = host.secrets // user.secrets;
+    hostSecrets = host.secrets or {};
+    userSecrets = user.secrets or {};
+    resolvedSecrets = hostSecrets // userSecrets;
+
+    hmSecrets =
+      lib.filterAttrs
+      (n: req: req.requiredBy == "home" || req.requiredBy == "both")
+      declaredSecrets;
 
     defaultSshKey =
       if host.system == "x86_64-darwin" || host.system == "aarch64-darwin"
@@ -50,19 +63,22 @@
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault [defaultSshKey];
-      secrets = lib.mapAttrs (n: v: {sopsFile = v.path;}) resolvedSecrets;
+      secrets = mkSopsAttrs resolvedSecrets;
     };
 
     assertions =
       lib.mapAttrsToList (name: req: let
         description =
           if req.description != null
-          then " (${req.description})"
+          then "${req.description}, "
           else "";
       in {
-        assertion = (!req.required) || (resolvedSecrets ? ${name});
-        message = "HM (${user.username}): Module requires the secret '${name}'${description}, but it is not configured.";
+        assertion =
+          if req.requiredBy == "home"
+          then (userSecrets ? ${name})
+          else (hostSecrets ? ${name});
+        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.requiredBy}), but it is not configured.";
       })
-      declaredSecrets;
+      hmSecrets;
   };
 }

@@ -9,7 +9,7 @@
   };
 
   secrets.test = {
-    required = false;
+    requiredBy = "none";
     description = "Test Secret";
   };
 
