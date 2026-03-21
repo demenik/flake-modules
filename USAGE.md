@@ -137,6 +137,12 @@ system-level settings, hardware configurations, and provides host-level secrets
   stateVersion = "25.11";
   hmStateVersion = "25.11";
 
+  # Define the users on this host.
+  # User configs can be used on multiple hosts.
+  users = [
+    ../../users/user1
+  ];
+
   # Import your modules here
   modules = [
     ../../modules/my-module.nix
