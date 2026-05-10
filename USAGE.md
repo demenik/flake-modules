@@ -47,11 +47,23 @@ all configurations:
     };
   };
 
-  outputs = { flake-modules, ... } @ inputs: let
-    hostsDir = ./hosts;
-  in {
-    nixosConfigurations = flake-modules.lib.mkNixosConfigurations { inherit hostsDir inputs; };
-    homeConfigurations  = flake-modules.lib.mkHomeConfigurations  { inherit hostsDir inputs; };
+  outputs = { flake-modules, ... } @ inputs: {
+    # mkNixosConfigurations and mkHomeConfigurations support the following arguments:
+    # - hostsDir: Path to a directory containing host configurations (optional)
+    # - hosts: Attribute set of hostName to hostPath mapping (optional)
+    # - inputs: The flake inputs (required)
+    # - extraSpecialArgs: Extra arguments passed to modules (optional)
+    # - extraModules: Extra NixOS/Home Manager modules to include (optional)
+    nixosConfigurations = flake-modules.lib.mkNixosConfigurations {
+      hostsDir = ./hosts;
+      inherit inputs;
+      extraSpecialArgs = { inherit inputs; };
+    };
+
+    homeConfigurations = flake-modules.lib.mkHomeConfigurations {
+      hostsDir = ./hosts;
+      inherit inputs;
+    };
   };
 }
 ```
@@ -81,15 +93,15 @@ Everything is optional unless staten otherwise.
       # Optional description displayed when not configured by the user/host
       description = "My module secret";
 
-      # Can be either "nixos", "home", "both" or "none".
+      # Can be either "nixos", "hm", "both" or "none".
       # - "nixos": Must be configured in ./hosts, only usable inside NixOS config,
       #            uses /etc/ssh/ssh_host_ed25519_key by default
-      # - "home":  Must be configured in ./users, only usable inside HM config,
+      # - "hm":     Must be configured in ./users, only usable inside HM config,
       #            uses ~/.ssh/id_ed25519 by default
       # - "both":  Must be configured in ./hosts, usable by both NixOS and HM,
       #            uses both keys by default
       # - "none":  The secret is optional and is not checked at build time
-      usedBy = "home";
+      usedBy = "hm";
     };
   };
 
