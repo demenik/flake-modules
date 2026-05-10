@@ -10,6 +10,8 @@ in {
   mkHost = {
     hostPath,
     inputs,
+    extraSpecialArgs ? {},
+    extraModules ? [],
   }: let
     loader = import ./module-loader.nix {inherit lib inputs;};
 
@@ -28,7 +30,7 @@ in {
   in
     nixpkgs.lib.nixosSystem {
       inherit (host) system;
-      specialArgs = {inherit inputs host users;};
+      specialArgs = {inherit inputs host users;} // extraSpecialArgs;
 
       modules =
         [{system.stateVersion = host.stateVersion;}]
@@ -55,7 +57,7 @@ in {
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              extraSpecialArgs = {inherit inputs host users;};
+              extraSpecialArgs = {inherit inputs host users;} // extraSpecialArgs;
             };
 
             home-manager.users = lib.listToAttrs (
@@ -88,13 +90,16 @@ in {
               users
             );
           }
-        ];
+        ]
+        ++ extraModules;
     };
 
   mkHome = {
     hostPath,
     userPath,
     inputs,
+    extraSpecialArgs ? {},
+    extraModules ? [],
   }: let
     loader = import ./module-loader.nix {inherit lib inputs;};
 
@@ -128,7 +133,7 @@ in {
       extraSpecialArgs = {
         inherit inputs host user;
         users = [user];
-      };
+      } // extraSpecialArgs;
 
       modules =
         [{home.stateVersion = host.hmStateVersion;}]
@@ -152,6 +157,7 @@ in {
           })
         ]
         # === Warnings ===
-        ++ (map mkModuleWarning modules);
+        ++ (map mkModuleWarning modules)
+        ++ extraModules;
     };
 }

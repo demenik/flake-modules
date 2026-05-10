@@ -10,25 +10,47 @@
     else {};
 in {
   mkNixosConfigurations = {
-    hostsDir,
+    hostsDir ? null,
+    hosts ? {},
     inputs,
-  }:
+    extraSpecialArgs ? {},
+    extraModules ? [],
+  }: let
+    discoveredHosts =
+      if (hostsDir != null)
+      then
+        lib.mapAttrs
+        (hostName: _: hostsDir + "/${hostName}")
+        (getDirs hostsDir)
+      else {};
+
+    allHosts = discoveredHosts // hosts;
+  in
     lib.mapAttrs
-    (hostName: _:
+    (hostName: hostPath:
       mkHost {
-        hostPath = hostsDir + "/${hostName}";
-        inherit inputs;
+        inherit hostPath inputs extraSpecialArgs extraModules;
       })
-    (getDirs hostsDir);
+    allHosts;
 
   mkHomeConfigurations = {
-    hostsDir,
+    hostsDir ? null,
+    hosts ? {},
     inputs,
+    extraSpecialArgs ? {},
+    extraModules ? [],
   }: let
-    hostDirs = getDirs hostsDir;
+    discoveredHosts =
+      if (hostsDir != null)
+      then
+        lib.mapAttrs
+        (hostName: _: hostsDir + "/${hostName}")
+        (getDirs hostsDir)
+      else {};
 
-    getUserConfigForHost = hostName: let
-      hostPath = hostsDir + "/${hostName}";
+    allHosts = discoveredHosts // hosts;
+
+    getUserConfigForHost = hostName: hostPath: let
       host = import hostPath;
     in
       if host ? users
@@ -41,12 +63,12 @@ in {
               lib.nameValuePair
               "${user.username}@${hostName}"
               (mkHome {
-                inherit hostPath userPath inputs;
+                inherit hostPath userPath inputs extraSpecialArgs extraModules;
               })
           )
           host.users
         )
       else {};
   in
-    lib.foldl' (acc: hostName: acc // (getUserConfigForHost hostName)) {} (builtins.attrNames hostDirs);
+    lib.foldl' (acc: hostName: acc // (getUserConfigForHost hostName allHosts.${hostName})) {} (builtins.attrNames allHosts);
 }
