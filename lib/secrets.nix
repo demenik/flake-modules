@@ -13,19 +13,30 @@
 
   mkNixosConfig = {
     host,
+    users ? [],
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
     hostSecrets = host.secrets or {};
+    userSecrets = lib.foldl (acc: u: acc // (u.secrets or {})) {} users;
+    allSecrets = hostSecrets // userSecrets;
+
+    resolvedSecrets =
+      lib.filterAttrs
+      (n: v:
+        if declaredSecrets ? ${n}
+        then declaredSecrets.${n}.usedBy == "nixos" || declaredSecrets.${n}.usedBy == "both"
+        else true)
+      allSecrets;
 
     nixosSecrets =
       lib.filterAttrs
-      (n: req: req.requiredBy == "nixos" || req.requiredBy == "both")
+      (n: req: req.usedBy == "nixos" || req.usedBy == "both")
       declaredSecrets;
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault ["/etc/ssh/ssh_host_ed25519_key"];
-      secrets = mkSopsAttrs hostSecrets;
+      secrets = mkSopsAttrs resolvedSecrets;
     };
 
     assertions =
@@ -35,8 +46,8 @@
           then "${req.description}, "
           else "";
       in {
-        assertion = hostSecrets ? ${name};
-        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.requiredBy}), but it is not configured.";
+        assertion = !req.required || (allSecrets ? ${name});
+        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured.";
       })
       nixosSecrets;
   };
@@ -49,11 +60,19 @@
     declaredSecrets = getDeclaredSecrets modules;
     hostSecrets = host.secrets or {};
     userSecrets = user.secrets or {};
-    resolvedSecrets = hostSecrets // userSecrets;
+    allSecrets = hostSecrets // userSecrets;
+
+    resolvedSecrets =
+      lib.filterAttrs
+      (n: v:
+        if declaredSecrets ? ${n}
+        then declaredSecrets.${n}.usedBy == "hm" || declaredSecrets.${n}.usedBy == "both"
+        else true)
+      allSecrets;
 
     hmSecrets =
       lib.filterAttrs
-      (n: req: req.requiredBy == "home" || req.requiredBy == "both")
+      (n: req: req.usedBy == "hm" || req.usedBy == "both")
       declaredSecrets;
 
     defaultSshKey =
@@ -73,11 +92,8 @@
           then "${req.description}, "
           else "";
       in {
-        assertion =
-          if req.requiredBy == "home"
-          then (userSecrets ? ${name})
-          else (hostSecrets ? ${name});
-        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.requiredBy}), but it is not configured.";
+        assertion = !req.required || (allSecrets ? ${name});
+        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured.";
       })
       hmSecrets;
   };

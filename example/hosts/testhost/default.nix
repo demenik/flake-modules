@@ -6,6 +6,10 @@
   users = [../../users/testuser];
   modules = [];
 
+  secrets = {
+    test-nixos.path = ./secrets/test-nixos.yaml;
+  };
+
   nixosConfig = {
     networking.hostName = "testhost";
 

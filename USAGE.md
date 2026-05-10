@@ -89,7 +89,7 @@ Everything is optional unless staten otherwise.
       # - "both":  Must be configured in ./hosts, usable by both NixOS and HM,
       #            uses both keys by default
       # - "none":  The secret is optional and is not checked at build time
-      requiredBy = "home";
+      usedBy = "home";
     };
   };
 
@@ -121,7 +121,7 @@ Everything is optional unless staten otherwise.
 
 A host configuration represents a physical or virtual machine. It defines
 system-level settings, hardware configurations, and provides host-level secrets
-(required by modules with `requiredBy = "nixos"` or `"both"`).
+(required by modules with `usedBy = "nixos"` or `"both"`).
 
 `nixosConfig` can optionally take arguments like `pkgs`, `inputs`, `lib`, `config`, ...
 
@@ -155,7 +155,7 @@ system-level settings, hardware configurations, and provides host-level secrets
 
   # Provide actual files for the secrets declared by the modules.
   # Note: NixOS will only evaluate secrets declared with
-  # requiredBy = "nixos" or "both".
+  # usedBy = "nixos" or "both".
   secrets = {
     "my-secret" = {
       # Required. Path to the encrypted sops file.
@@ -183,7 +183,7 @@ system-level settings, hardware configurations, and provides host-level secrets
 ## Creating a user
 
 A user configuration defines user-specific settings and provides
-user-level secrets (required by modules with `requiredBy = "home"`).
+user-level secrets (required by modules with `usedBy = "home"`).
 
 Everything is optional unless stated otherwise.
 
@@ -207,7 +207,7 @@ Everything is optional unless stated otherwise.
 
   # Provide actual files for the secrets declared by the modules.
   # Note: Home Manager will evaluate secrets declared with
-  # requiredBy = "home" or "both".
+  # usedBy = "home" or "both".
   secrets = {
     "user-secret" = {
       path = ./secrets/user-secret.sops.yaml;

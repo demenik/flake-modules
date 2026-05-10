@@ -43,10 +43,14 @@ with lib; {
             type = types.nullOr types.str;
             default = null;
           };
-          requiredBy = mkOption {
-            type = types.enum ["nixos" "home" "both" "none"];
-            default = "home";
-            description = "Scope of the secret. 'nixos' and 'both' must be configured in the host config, while 'home' is configured in the user config";
+          usedBy = mkOption {
+            type = types.enum ["nixos" "hm" "both"];
+            description = "Where the secret is decrypted and used. 'nixos' and 'both' imply decryption on the host, 'hm' implies decryption for the user.";
+          };
+          required = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Whether an assertion should be generated to ensure the secret is configured.";
           };
         };
       });
