@@ -1,4 +1,11 @@
-{lib, ...}: rec {
+{lib, ...}: let
+  getUserSshKey = host: user:
+    if user.sshKeyPath != null
+    then user.sshKeyPath
+    else if host.system == "x86_64-darwin" || host.system == "aarch64-darwin"
+    then "/Users/${user.username}/.ssh/id_ed25519"
+    else "/home/${user.username}/.ssh/id_ed25519";
+in rec {
   getDeclaredSecrets = modules: lib.foldl (acc: m: acc // m.secrets) {} modules;
 
   mkSopsAttrs = secrets:
@@ -33,9 +40,11 @@
       lib.filterAttrs
       (n: req: req.usedBy == "nixos" || req.usedBy == "both")
       declaredSecrets;
+
+    userSshKeys = map (getUserSshKey host) users;
   in {
     sops = {
-      age.sshKeyPaths = lib.mkDefault ["/etc/ssh/ssh_host_ed25519_key"];
+      age.sshKeyPaths = lib.mkDefault ([host.sshKeyPath] ++ userSshKeys);
       secrets = mkSopsAttrs resolvedSecrets;
     };
 
@@ -75,10 +84,7 @@
       (n: req: req.usedBy == "hm" || req.usedBy == "both")
       declaredSecrets;
 
-    defaultSshKey =
-      if host.system == "x86_64-darwin" || host.system == "aarch64-darwin"
-      then "/Users/${user.username}/.ssh/id_ed25519"
-      else "/home/${user.username}/.ssh/id_ed25519";
+    defaultSshKey = getUserSshKey host user;
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault [defaultSshKey];

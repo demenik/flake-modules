@@ -25,6 +25,11 @@ with lib; {
       default = {};
     };
 
+    sshKeyPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Path to the user's SSH key for sops decryption. Defaults to ~/.ssh/id_ed25519.";
+    };
     secrets = mkOption {
       default = {};
       type = types.attrsOf (lib.types.submodule {
