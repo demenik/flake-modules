@@ -21,6 +21,13 @@ in {
     modulePaths = host.modules ++ (lib.flatten (map (u: u.modules) users));
     modules = loader.resolveModules modulePaths;
 
+    nixosOverlays =
+      host.overlays.nixos
+      ++ host.overlays.home
+      ++ host.overlays.both
+      ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.home ++ u.overlays.both) users)
+      ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.home ++ m.overlays.both) modules);
+
     options =
       map (m: {
         _file = "moduleOptions in '${m.name}'";
@@ -43,6 +50,8 @@ in {
         ++ (map (m: m.nixos) modules)
         ++ [host.nixosConfig]
         ++ (map (u: u.nixosConfig) users)
+        # === NixOS overlays ===
+        ++ [{nixpkgs.overlays = nixosOverlays;}]
         # === Secrets ===
         ++ [
           lib-inputs.sops-nix.nixosModules.sops
@@ -57,7 +66,12 @@ in {
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              extraSpecialArgs = {inherit inputs host users;} // extraSpecialArgs;
+              extraSpecialArgs =
+                {
+                  inherit inputs host users;
+                  isStandalone = false;
+                }
+                // extraSpecialArgs;
             };
 
             home-manager.users = lib.listToAttrs (
@@ -106,10 +120,20 @@ in {
     host = loader.loadHost hostPath;
     user = loader.loadUser userPath;
 
-    pkgs = nixpkgs.legacyPackages.${host.system};
-
     modulePaths = host.modules ++ user.modules;
     modules = loader.resolveModules modulePaths;
+
+    homeOverlays =
+      host.overlays.home
+      ++ host.overlays.both
+      ++ user.overlays.home
+      ++ user.overlays.both
+      ++ (lib.concatMap (m: m.overlays.home ++ m.overlays.both) modules);
+
+    pkgs = import nixpkgs {
+      inherit (host) system;
+      overlays = homeOverlays;
+    };
 
     options =
       map (m: {
@@ -130,10 +154,13 @@ in {
   in
     home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
-      extraSpecialArgs = {
-        inherit inputs host user;
-        users = [user];
-      } // extraSpecialArgs;
+      extraSpecialArgs =
+        {
+          inherit inputs host user;
+          users = [user];
+          isStandalone = true;
+        }
+        // extraSpecialArgs;
 
       modules =
         [{home.stateVersion = host.hmStateVersion;}]

@@ -18,6 +18,27 @@ with lib; {
       default = {};
     };
 
+    # === Overlays ===
+    overlays = mkOption {
+      default = {};
+      type = types.submodule {
+        options = {
+          nixos = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+          home = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+          both = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+        };
+      };
+    };
+
     # === NixOS ===
     nixos = mkOption {
       type = types.deferredModule;

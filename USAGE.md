@@ -105,6 +105,22 @@ Everything is optional unless staten otherwise.
     };
   };
 
+  # Define overlays
+  overlays = {
+    nixos = [
+      # Applied only to NixOS package set (e.g. system packages, custom kernel patches)
+      (final: prev: { })
+    ];
+    home = [
+      # Applied only to Home Manager package set (e.g. standalone user packages)
+      (final: prev: { })
+    ];
+    both = [
+      # Applied to both NixOS and Home Manager package sets
+      (final: prev: { })
+    ];
+  };
+
   # Import other modules as dependencies
   modules = [./other-module.nix];
 
@@ -160,6 +176,13 @@ system-level settings, hardware configurations, and provides host-level secrets
     ../../modules/my-module.nix
   ];
 
+  # Define host-level overlays
+  overlays = {
+    nixos = [ (final: prev: { }) ];
+    home = [ (final: prev: { }) ];
+    both = [ (final: prev: { }) ];
+  };
+
   # Configure the imported modules for this specific host
   moduleConfig = {
     my-module.my-option = true;
@@ -211,6 +234,13 @@ Everything is optional unless stated otherwise.
     ../../modules/git.nix
     ../../modules/neovim
   ];
+
+  # Define user-level overlays
+  overlays = {
+    nixos = [ (final: prev: { }) ];
+    home = [ (final: prev: { }) ];
+    both = [ (final: prev: { }) ];
+  };
 
   # Configure the imported modules for this specific user
   moduleConfig = {

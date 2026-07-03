@@ -14,6 +14,26 @@ with lib; {
       default = [];
     };
 
+    overlays = mkOption {
+      default = {};
+      type = types.submodule {
+        options = {
+          nixos = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+          home = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+          both = mkOption {
+            type = types.listOf types.unspecified;
+            default = [];
+          };
+        };
+      };
+    };
+
     moduleConfig = mkOption {
       type = types.deferredModule;
       default = {};
