@@ -8,8 +8,9 @@
     if dir != null && builtins.pathExists dir
     then let
       files = builtins.readDir dir;
-      dirs = lib.filterAttrs (name: type: type == "directory") files;
-      nixFiles = lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix") files;
+      filteredFiles = lib.filterAttrs (name: type: !lib.hasPrefix "." name) files;
+      dirs = lib.filterAttrs (name: type: type == "directory") filteredFiles;
+      nixFiles = lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix") filteredFiles;
 
       discoveredDirs = lib.mapAttrs (name: _: dir + "/${name}") dirs;
       discoveredFiles = lib.listToAttrs (map (name: {
