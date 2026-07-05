@@ -6,27 +6,23 @@
   ...
 }: let
   secrets = import ./secrets.nix {inherit lib;};
-in {
-  mkHost = {
+
+  resolveConfig = {
     hostPath,
     inputs,
-    extraSpecialArgs ? {},
-    extraModules ? [],
+    userPaths ? null,
   }: let
     loader = import ./module-loader.nix {inherit lib inputs;};
-
     host = loader.loadHost hostPath;
-    users = map loader.loadUser host.users;
+
+    resolvedUserPaths =
+      if userPaths == null
+      then host.users
+      else userPaths;
+    users = map loader.loadUser resolvedUserPaths;
 
     modulePaths = host.modules ++ (lib.flatten (map (u: u.modules) users));
     modules = loader.resolveModules modulePaths;
-
-    nixosOverlays =
-      host.overlays.nixos
-      ++ host.overlays.home
-      ++ host.overlays.both
-      ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.home ++ u.overlays.both) users)
-      ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.home ++ m.overlays.both) modules);
 
     options =
       map (m: {
@@ -34,6 +30,25 @@ in {
         options = m.moduleOptions;
       })
       modules;
+  in {
+    inherit host users modules options loader;
+  };
+in {
+  mkHost = {
+    hostPath,
+    inputs,
+    extraSpecialArgs ? {},
+    extraModules ? [],
+  }: let
+    configData = resolveConfig {inherit hostPath inputs;};
+    inherit (configData) host users modules options loader;
+
+    nixosOverlays =
+      host.overlays.nixos
+      ++ host.overlays.home
+      ++ host.overlays.both
+      ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.home ++ u.overlays.both) users)
+      ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.home ++ m.overlays.both) modules);
   in
     nixpkgs.lib.nixosSystem {
       inherit (host) system;
@@ -76,7 +91,25 @@ in {
 
             home-manager.users = lib.listToAttrs (
               map (user: let
-                userModules = loader.resolveModules (host.modules ++ user.modules);
+                modulesByPath = lib.listToAttrs (map (m: {
+                    name = m._path;
+                    value = m;
+                  })
+                  modules);
+
+                userModuleClosure = lib.genericClosure {
+                  startSet = map (p: {
+                    key = loader.normalize p;
+                    path = p;
+                  }) (host.modules ++ user.modules);
+                  operator = item:
+                    map (p: {
+                      key = loader.normalize p;
+                      path = p;
+                    }) (modulesByPath.${item.key}.modules or []);
+                };
+
+                userModules = map (item: modulesByPath.${item.key}) userModuleClosure;
               in {
                 name = user.username;
                 value.imports =
@@ -115,13 +148,12 @@ in {
     extraSpecialArgs ? {},
     extraModules ? [],
   }: let
-    loader = import ./module-loader.nix {inherit lib inputs;};
-
-    host = loader.loadHost hostPath;
-    user = loader.loadUser userPath;
-
-    modulePaths = host.modules ++ user.modules;
-    modules = loader.resolveModules modulePaths;
+    configData = resolveConfig {
+      inherit hostPath inputs;
+      userPaths = [userPath];
+    };
+    inherit (configData) host users modules options;
+    user = builtins.elemAt users 0;
 
     homeOverlays =
       host.overlays.home
@@ -134,13 +166,6 @@ in {
       inherit (host) system;
       overlays = homeOverlays;
     };
-
-    options =
-      map (m: {
-        _file = "moduleOptions in '${m.name}'";
-        options = m.moduleOptions;
-      })
-      modules;
 
     mkModuleWarning = module: let
       baseMsg = "Module '${module.name}' has NixOS configuration, which doesn't get applied in standalone HM mode.";

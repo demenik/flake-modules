@@ -3,11 +3,14 @@
   inputs ? {},
   ...
 }: rec {
-  evalModule = schema: path:
-    (lib.evalModules {
-      modules = [schema path];
-      specialArgs = {inherit inputs;};
-    }).config;
+  evalModule = schema: path: let
+    cfg =
+      (lib.evalModules {
+        modules = [schema path];
+        specialArgs = {inherit inputs;};
+      }).config;
+  in
+    cfg // {_path = normalize path;};
 
   loadHost = path: evalModule ./schemas/host.nix path;
   loadUser = path: evalModule ./schemas/user.nix path;
@@ -25,23 +28,27 @@
     else s1;
 
   resolveModules = startingPaths: let
-    resolvedPaths = map (item: item.path) (
-      lib.genericClosure {
-        startSet =
-          map (p: {
-            key = normalize p;
-            path = p;
-          })
-          startingPaths;
+    resolved = lib.genericClosure {
+      startSet =
+        map (p: let
+          loaded = loadModule p;
+        in {
+          key = normalize p;
+          path = p;
+          inherit loaded;
+        })
+        startingPaths;
 
-        operator = item:
-          map (p: {
-            key = normalize p;
-            path = p;
-          })
-          (loadModule item.path).modules;
-      }
-    );
+      operator = item:
+        map (p: let
+          loaded = loadModule p;
+        in {
+          key = normalize p;
+          path = p;
+          inherit loaded;
+        })
+        item.loaded.modules;
+    };
   in
-    map loadModule resolvedPaths;
+    map (item: item.loaded) resolved;
 }
