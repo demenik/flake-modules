@@ -40,6 +40,8 @@ in {
     extraSpecialArgs ? {},
     extraModules ? [],
   }: let
+    loader = import ./module-loader.nix {inherit lib inputs;};
+
     discoveredHosts =
       if (hostsDir != null)
       then
@@ -51,24 +53,21 @@ in {
     allHosts = discoveredHosts // hosts;
 
     getUserConfigForHost = hostName: hostPath: let
-      host = import hostPath;
+      host = loader.loadHost hostPath;
     in
-      if host ? users
-      then
-        lib.listToAttrs (
-          map (
-            userPath: let
-              user = import userPath;
-            in
-              lib.nameValuePair
-              "${user.username}@${hostName}"
-              (mkHome {
-                inherit hostPath userPath inputs extraSpecialArgs extraModules;
-              })
-          )
-          host.users
+      lib.listToAttrs (
+        map (
+          userPath: let
+            user = loader.loadUser userPath;
+          in
+            lib.nameValuePair
+            "${user.username}@${hostName}"
+            (mkHome {
+              inherit hostPath userPath inputs extraSpecialArgs extraModules;
+            })
         )
-      else {};
+        host.users
+      );
   in
     lib.foldl' (acc: hostName: acc // (getUserConfigForHost hostName allHosts.${hostName})) {} (builtins.attrNames allHosts);
 }
