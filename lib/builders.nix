@@ -115,7 +115,13 @@ in {
                 value.imports =
                   [{home.stateVersion = host.hmStateVersion;}]
                   # === Module config ===
-                  ++ options
+                  ++ (
+                    map (m: {
+                      _file = "moduleOptions in '${m.name}'";
+                      options = m.moduleOptions;
+                    })
+                    userModules
+                  )
                   ++ (map (m: m.moduleConfig) userModules)
                   ++ [host.moduleConfig user.moduleConfig]
                   # === HM modules ===
@@ -124,7 +130,10 @@ in {
                   # === Secrets ===
                   ++ [
                     lib-inputs.sops-nix.homeModules.sops
-                    (secrets.mkHomeConfig {inherit host user modules;})
+                    (secrets.mkHomeConfig {
+                      inherit host user;
+                      modules = userModules;
+                    })
                   ]
                   # === HM defaults ===
                   ++ [
