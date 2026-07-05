@@ -3,6 +3,11 @@
 in
   with lib; {
     options = {
+      hostname = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Explicit hostname for the host system.";
+      };
       system = mkOption {
         type = types.str;
         description = "Target architecture/system identifier (e.g. x86_64-linux).";

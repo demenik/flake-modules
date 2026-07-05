@@ -74,6 +74,8 @@ in {
         ++ (map (u: u.nixosConfig) users)
         # === NixOS overlays ===
         ++ [{nixpkgs.overlays = nixosOverlays;}]
+        # === Hostname ===
+        ++ lib.optional (host.hostname != null) {networking.hostName = lib.mkDefault host.hostname;}
         # === Secrets ===
         ++ [
           lib-inputs.sops-nix.nixosModules.sops
