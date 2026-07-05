@@ -93,15 +93,18 @@ Everything is optional unless staten otherwise.
       # Optional description displayed when not configured by the user/host
       description = "My module secret";
 
-      # Can be either "nixos", "hm", "both" or "none".
+      # Can be either "nixos", "hm", or "both".
       # - "nixos": Must be configured in ./hosts, only usable inside NixOS config,
       #            uses /etc/ssh/ssh_host_ed25519_key by default
       # - "hm":     Must be configured in ./users, only usable inside HM config,
       #            uses ~/.ssh/id_ed25519 by default
       # - "both":  Must be configured in ./hosts, usable by both NixOS and HM,
       #            uses both keys by default
-      # - "none":  The secret is optional and is not checked at build time
       usedBy = "hm";
+
+      # Optional. Whether to generate assertions to ensure this secret is configured.
+      # Defaults to true. If set to false, build-time assertions are skipped.
+      required = true;
     };
   };
 
@@ -154,10 +157,7 @@ system-level settings, hardware configurations, and provides host-level secrets
 `nixosConfig` can optionally take arguments like `pkgs`, `inputs`, `lib`, `config`, ...
 
 ```nix
-{lib, inputs, ...}: {
-  # Required. The hostname of the machine.
-  hostname = "host1";
-
+{lib, ...}: {
   # Required. The architecture of the system.
   system = "x86_64-linux";
 
@@ -205,6 +205,7 @@ system-level settings, hardware configurations, and provides host-level secrets
   nixosConfig = {pkgs, config, ...}: {
     imports = [ ./hardware-configuration.nix ];
 
+    networking.hostName = "host1";
     boot.loader.systemd-boot.enable = true;
   };
 
