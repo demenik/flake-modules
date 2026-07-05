@@ -6,6 +6,7 @@
   ...
 }: let
   secrets = import ./secrets.nix {inherit lib;};
+  introspection = import ./introspection.nix {inherit lib;};
 
   resolveConfig = {
     hostPath,
@@ -34,6 +35,8 @@
     inherit host users modules options loader;
   };
 in {
+  inherit resolveConfig;
+
   mkHost = {
     hostPath,
     inputs,
@@ -83,6 +86,8 @@ in {
         ]
         # === NixOS defaults ===
         ++ (map (user: import ./defaults/nixos-user.nix {inherit user lib;}) users)
+        # === Introspection ===
+        ++ [(introspection.mkNixosIntrospection {inherit host users modules secrets;})]
         # === Home-Manager ===
         ++ [
           home-manager.nixosModules.home-manager
@@ -234,6 +239,8 @@ in {
             inherit (host) system;
           })
         ]
+        # === Introspection ===
+        ++ [(introspection.mkHomeIntrospection {inherit host user modules secrets;})]
         # === Warnings ===
         ++ (map mkModuleWarning modules)
         ++ extraModules;
