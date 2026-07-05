@@ -124,13 +124,15 @@ Everything is optional unless staten otherwise.
     ];
   };
 
-  # Import other modules as dependencies (supports static paths and conditional submodules)
+  # Import other modules as dependencies (supports static paths, conditional submodules, and external/raw modules)
   modules = [
     ./other-module.nix
     {
       path = ./linux-only-module.nix;
       cond = system: system == "x86_64-linux"; # evaluates predicate against host system type
     }
+    # External module imported from a flake input:
+    inputs.some-external-flake.flakeModules.my-module
   ];
 
   # Configure modules

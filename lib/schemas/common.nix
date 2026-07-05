@@ -34,11 +34,11 @@ with lib; {
     };
   };
 
-  modulesType = types.listOf (types.either types.path (types.submodule {
+  modulesType = types.listOf (types.either (types.either types.path types.raw) (types.submodule {
     options = {
       path = mkOption {
-        type = types.path;
-        description = "Path to the imported module.";
+        type = types.either types.path types.raw;
+        description = "Path or raw configuration of the imported module.";
       };
       cond = mkOption {
         type = types.raw;

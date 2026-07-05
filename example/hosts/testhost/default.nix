@@ -5,7 +5,12 @@
   hmStateVersion = "25.11";
 
   users = [../../users/testuser];
-  modules = [];
+  modules = [
+    {
+      name = "my-external-module";
+      moduleConfig = {};
+    }
+  ];
 
   secrets = {
     test-nixos.path = ./secrets/test-nixos.yaml;

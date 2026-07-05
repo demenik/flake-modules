@@ -3,19 +3,38 @@
   inputs ? {},
   ...
 }: rec {
-  evalModule = schema: path: let
-    exists = builtins.pathExists path;
+  getModuleKey = moduleSource:
+    if lib.isPath moduleSource || builtins.isString moduleSource
+    then normalize moduleSource
+    else let
+      cfg =
+        (lib.evalModules {
+          modules = [./schemas/module.nix moduleSource];
+          specialArgs = {inherit inputs;};
+        }).config;
+    in
+      if cfg ? name && cfg.name != "unknown-module"
+      then "external:${cfg.name}"
+      else throw "External module imported from an attribute set or function must define a unique 'name' attribute.";
+
+  evalModule = schema: moduleSource: let
+    isPath = lib.isPath moduleSource || builtins.isString moduleSource;
+    exists =
+      if isPath
+      then builtins.pathExists moduleSource
+      else true;
     _assert =
       if exists
       then true
-      else throw "Configuration path '${toString path}' does not exist on disk.";
+      else throw "Configuration path '${toString moduleSource}' does not exist on disk.";
     cfg =
       (lib.evalModules {
-        modules = [schema path];
+        modules = [schema moduleSource];
         specialArgs = {inherit inputs;};
       }).config;
+    pathKey = getModuleKey moduleSource;
   in
-    builtins.seq _assert (cfg // {_path = normalize path;});
+    builtins.seq _assert (cfg // {_path = pathKey;});
 
   loadHost = path: evalModule ./schemas/host.nix path;
   loadUser = path: evalModule ./schemas/user.nix path;
@@ -32,17 +51,17 @@
     then lib.removeSuffix "/default.nix" s1
     else s1;
 
-  extractPath = system: item:
-    if lib.isPath item
-    then item
-    else if lib.isAttrs item && item ? cond && item ? path
+  extractPath = system: item: let
+    isConditional = lib.isAttrs item && item ? cond && item ? path;
+  in
+    if isConditional
     then
       (
         if item.cond system
         then item.path
         else null
       )
-    else throw "Invalid module dependency declaration: ${builtins.toJSON item}";
+    else item;
 
   filterActive = system: items: lib.filter (x: x != null) (map (extractPath system) items);
 
@@ -54,7 +73,7 @@
         map (p: let
           loaded = loadModule p;
         in {
-          key = normalize p;
+          key = loaded._path;
           path = p;
           inherit loaded;
         })
@@ -64,7 +83,7 @@
         map (p: let
           loaded = loadModule p;
         in {
-          key = normalize p;
+          key = loaded._path;
           path = p;
           inherit loaded;
         })

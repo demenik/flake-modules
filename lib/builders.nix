@@ -108,12 +108,12 @@ in {
 
                 userModuleClosure = lib.genericClosure {
                   startSet = map (p: {
-                    key = loader.normalize p;
+                    key = loader.getModuleKey p;
                     path = p;
                   }) (loader.filterActive host.system (host.modules ++ user.modules));
                   operator = item:
                     map (p: {
-                      key = loader.normalize p;
+                      key = loader.getModuleKey p;
                       path = p;
                     }) (loader.filterActive host.system (modulesByPath.${item.key}.modules or []));
                 };
