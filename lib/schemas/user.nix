@@ -3,10 +3,6 @@ with lib; {
   options = {
     username = mkOption {type = types.str;};
 
-    users = mkOption {
-      type = types.listOf types.path;
-      default = [];
-    };
     modules = mkOption {
       type = types.listOf types.path;
       default = [];
