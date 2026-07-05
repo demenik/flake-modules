@@ -214,8 +214,22 @@ system-level settings, hardware configurations, and provides host-level secrets
       # Optional. The key inside the sops file to extract.
       # Defaults to the name of the secret ("my-secret").
       key = "other-secret";
+
+      # Optional. Custom decrypted options:
+      decryptedPath = "/run/secrets/custom-path"; # Custom target location on disk
+      mode = "0400";                              # Custom permissions mode
+      owner = "nginx";                            # Custom file owner
+      group = "nginx";                            # Custom file group
+      restartUnits = [ "nginx.service" ];         # Systemd units to restart on secret change
     };
   };
+
+  # Optional. GPG key paths for sops decryption
+  gnupgKeyPaths = [ "/var/lib/sops/gnupg.gpg" ];
+
+  # Optional. SSH key path for sops decryption.
+  # Defaults to "/etc/ssh/ssh_host_ed25519_key".
+  sshKeyPath = "/etc/ssh/ssh_host_ed25519_key";
 
   nixosConfig = {pkgs, config, ...}: {
     imports = [ ./hardware-configuration.nix ];
@@ -244,6 +258,13 @@ Everything is optional unless stated otherwise.
 {lib, inputs, ...}: {
   # Required. The library will automatically create the Home Manager user
   username = "user1";
+
+  # Optional. SSH key path for user sops decryption.
+  # Defaults to ~/.ssh/id_ed25519 on Linux.
+  sshKeyPath = "/home/user1/.ssh/id_ed25519";
+
+  # Optional. GPG key paths for user sops decryption
+  gnupgKeyPaths = [ "/home/user1/.gnupg/pubring.kbx" ];
 
   # Import your framework modules here.
   modules = [

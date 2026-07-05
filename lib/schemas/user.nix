@@ -42,6 +42,11 @@ in
         default = null;
         description = "Path to the user's SSH key for sops decryption. Defaults to ~/.ssh/id_ed25519.";
       };
+      gnupgKeyPaths = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "List of GPG key paths to use for sops decryption.";
+      };
       secrets = mkOption {
         default = {};
         type = types.attrsOf common.secretBindingSubmodule;

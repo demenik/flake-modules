@@ -31,6 +31,31 @@ with lib; {
         default = null;
         description = "Key name inside the sops file to extract. Defaults to the secret name.";
       };
+      decryptedPath = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Override the default path where the decrypted secret is written.";
+      };
+      mode = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Permissions mode of the decrypted secret file (e.g. '0400').";
+      };
+      owner = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Owner of the decrypted secret file.";
+      };
+      group = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Group of the decrypted secret file.";
+      };
+      restartUnits = mkOption {
+        type = types.nullOr (types.listOf types.str);
+        default = null;
+        description = "Systemd units to restart when the secret changes.";
+      };
     };
   };
 

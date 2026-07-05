@@ -66,6 +66,11 @@ in
         default = "/etc/ssh/ssh_host_ed25519_key";
         description = "Path to the host's SSH key for sops decryption.";
       };
+      gnupgKeyPaths = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "List of GPG key paths to use for sops decryption.";
+      };
       secrets = mkOption {
         default = {};
         type = types.attrsOf common.secretBindingSubmodule;
