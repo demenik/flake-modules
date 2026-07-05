@@ -8,6 +8,13 @@
     };
   };
 
+  modules = [
+    {
+      path = ./linux-only.nix;
+      cond = system: system == "x86_64-linux";
+    }
+  ];
+
   secrets = {
     test-both = {
       usedBy = "both";

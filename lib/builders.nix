@@ -22,7 +22,7 @@
     users = map loader.loadUser resolvedUserPaths;
 
     modulePaths = host.modules ++ (lib.flatten (map (u: u.modules) users));
-    modules = loader.resolveModules modulePaths;
+    modules = loader.resolveModules host.system modulePaths;
 
     options =
       map (m: {
@@ -110,12 +110,12 @@ in {
                   startSet = map (p: {
                     key = loader.normalize p;
                     path = p;
-                  }) (host.modules ++ user.modules);
+                  }) (loader.filterActive host.system (host.modules ++ user.modules));
                   operator = item:
                     map (p: {
                       key = loader.normalize p;
                       path = p;
-                    }) (modulesByPath.${item.key}.modules or []);
+                    }) (loader.filterActive host.system (modulesByPath.${item.key}.modules or []));
                 };
 
                 userModules = map (item: modulesByPath.${item.key}) userModuleClosure;

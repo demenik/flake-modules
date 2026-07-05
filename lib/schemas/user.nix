@@ -10,7 +10,7 @@ in
       };
 
       modules = mkOption {
-        type = types.listOf types.path;
+        type = common.modulesType;
         default = [];
         description = "List of user-specific modular configuration paths to load.";
       };

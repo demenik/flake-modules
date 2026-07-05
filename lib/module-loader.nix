@@ -32,7 +32,23 @@
     then lib.removeSuffix "/default.nix" s1
     else s1;
 
-  resolveModules = startingPaths: let
+  extractPath = system: item:
+    if lib.isPath item
+    then item
+    else if lib.isAttrs item && item ? cond && item ? path
+    then
+      (
+        if item.cond system
+        then item.path
+        else null
+      )
+    else throw "Invalid module dependency declaration: ${builtins.toJSON item}";
+
+  filterActive = system: items: lib.filter (x: x != null) (map (extractPath system) items);
+
+  resolveModules = system: startingPaths: let
+    activeStartingPaths = filterActive system startingPaths;
+
     resolved = lib.genericClosure {
       startSet =
         map (p: let
@@ -42,7 +58,7 @@
           path = p;
           inherit loaded;
         })
-        startingPaths;
+        activeStartingPaths;
 
       operator = item:
         map (p: let
@@ -52,7 +68,7 @@
           path = p;
           inherit loaded;
         })
-        item.loaded.modules;
+        (filterActive system item.loaded.modules);
     };
 
     checkDuplicateNames = let

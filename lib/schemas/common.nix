@@ -33,4 +33,17 @@ with lib; {
       };
     };
   };
+
+  modulesType = types.listOf (types.either types.path (types.submodule {
+    options = {
+      path = mkOption {
+        type = types.path;
+        description = "Path to the imported module.";
+      };
+      cond = mkOption {
+        type = types.raw;
+        description = "Condition predicate function taking system string.";
+      };
+    };
+  }));
 }

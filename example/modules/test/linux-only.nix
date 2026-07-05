@@ -1,0 +1,4 @@
+{
+  name = "linux-only";
+  moduleConfig = {};
+}

@@ -28,7 +28,7 @@ in
         description = "List of user configuration file paths to deploy on this host.";
       };
       modules = mkOption {
-        type = types.listOf types.path;
+        type = common.modulesType;
         default = [];
         description = "List of modular configuration folder/file paths to import on this host.";
       };

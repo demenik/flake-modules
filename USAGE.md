@@ -124,8 +124,14 @@ Everything is optional unless staten otherwise.
     ];
   };
 
-  # Import other modules as dependencies
-  modules = [./other-module.nix];
+  # Import other modules as dependencies (supports static paths and conditional submodules)
+  modules = [
+    ./other-module.nix
+    {
+      path = ./linux-only-module.nix;
+      cond = system: system == "x86_64-linux"; # evaluates predicate against host system type
+    }
+  ];
 
   # Configure modules
   moduleConfig = {

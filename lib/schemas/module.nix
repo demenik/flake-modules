@@ -18,7 +18,7 @@ in
 
       # === Modules ===
       modules = mkOption {
-        type = types.listOf types.path;
+        type = common.modulesType;
         default = [];
         description = "List of dependency module file/folder paths imported by this module.";
       };
