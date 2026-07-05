@@ -294,3 +294,8 @@ All host, user, and module schemas are open-ended (`freeformType` is enabled). T
 
 These custom fields can be accessed dynamically inside builders or other evaluation pipelines (e.g. via `host.machineRole`).
 
+## Validation & Error Handling
+
+To make configuration debugging easier, the framework performs proactive checks at evaluation time:
+- **Path Existence Verification**: Prior to schema evaluation, the loader checks that files exist on disk, raising a clear `"Configuration path '...' does not exist on disk"` error instead of cryptic Nix internal path lookup errors.
+- **Duplicate Module Name Detection**: When importing modules, the loader verifies that module names are unique across the transitively resolved closure. If two modules are defined at different filesystem paths with the same name, an error lists the duplicate name and the source paths.

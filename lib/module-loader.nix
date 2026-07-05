@@ -4,13 +4,18 @@
   ...
 }: rec {
   evalModule = schema: path: let
+    exists = builtins.pathExists path;
+    _assert =
+      if exists
+      then true
+      else throw "Configuration path '${toString path}' does not exist on disk.";
     cfg =
       (lib.evalModules {
         modules = [schema path];
         specialArgs = {inherit inputs;};
       }).config;
   in
-    cfg // {_path = normalize path;};
+    builtins.seq _assert (cfg // {_path = normalize path;});
 
   loadHost = path: evalModule ./schemas/host.nix path;
   loadUser = path: evalModule ./schemas/user.nix path;
@@ -49,6 +54,25 @@
         })
         item.loaded.modules;
     };
+
+    checkDuplicateNames = let
+      grouped = lib.groupBy (m: m.name) (map (item: item.loaded) resolved);
+      duplicates = lib.filterAttrs (name: ms: lib.length ms > 1 && name != "unknown-module") grouped;
+    in
+      if duplicates != {}
+      then let
+        dupInfo = lib.concatStringsSep "\n" (lib.mapAttrsToList (
+            name: ms: "- Module '${name}' is defined in multiple files: ${lib.concatStringsSep ", " (map (m: m._path) ms)}"
+          )
+          duplicates);
+      in
+        throw "Duplicate module names detected:\n${dupInfo}"
+      else true;
+
+    checkedResolved =
+      if checkDuplicateNames
+      then resolved
+      else [];
   in
-    map (item: item.loaded) resolved;
+    map (item: item.loaded) checkedResolved;
 }
