@@ -2,6 +2,7 @@
   common = import ./common.nix {inherit lib;};
 in
   with lib; {
+    freeformType = types.attrsOf types.raw;
     options = {
       username = mkOption {
         type = types.str;

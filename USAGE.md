@@ -275,3 +275,22 @@ Everything is optional unless stated otherwise.
   };
 }
 ```
+
+## Custom Metadata & Open Schemas
+
+All host, user, and module schemas are open-ended (`freeformType` is enabled). This allows you to attach custom metadata or arbitrary helper values directly at the root of your configurations without raising schema evaluation errors:
+
+```nix
+{ lib, ... }: {
+  system = "x86_64-linux";
+  stateVersion = "25.11";
+  hmStateVersion = "25.11";
+
+  # Custom metadata fields are fully permitted:
+  machineRole = "server";
+  location = "rack-2a";
+}
+```
+
+These custom fields can be accessed dynamically inside builders or other evaluation pipelines (e.g. via `host.machineRole`).
+
