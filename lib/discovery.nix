@@ -26,6 +26,7 @@ in {
     inputs,
     extraSpecialArgs ? {},
     extraModules ? [],
+    customBuilders ? {},
   }: let
     discoveredHosts = discoverHostsInDir hostsDir;
     allHosts = discoveredHosts // hosts;
@@ -33,7 +34,7 @@ in {
     lib.mapAttrs
     (hostName: hostPath:
       mkHost {
-        inherit hostPath inputs extraSpecialArgs extraModules;
+        inherit hostPath inputs extraSpecialArgs extraModules customBuilders;
       })
     allHosts;
 

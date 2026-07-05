@@ -364,3 +364,29 @@ flake-modules.lib.queryHost {
   inherit inputs;
 }
 ```
+
+## Extensible Host Builders (e.g. `nix-darwin` or `wsl`)
+
+The framework is modular and allows users to register custom host builders via the `customBuilders` option in `mkNixosConfigurations` or `mkHost`. By default, the `"nixos"` builder is registered for systems targeting Linux. Systems ending in `"darwin"` will be dispatched to a `"darwin"` builder, which can be supplied via `customBuilders`.
+
+To configure macOS systems via `nix-darwin` or other custom targets, define a builder function that takes `{ hostPath, inputs, extraSpecialArgs, extraModules, configData }` and returns the compiled system derivation. Then, register it inside your flake outputs:
+
+```nix
+outputs = { flake-modules, nix-darwin, ... } @ inputs: {
+  nixosConfigurations = flake-modules.lib.mkNixosConfigurations {
+    hostsDir = ./hosts;
+    inherit inputs;
+    customBuilders = {
+      # Register a custom Darwin builder
+      darwin = { configData, extraSpecialArgs, extraModules, ... }:
+        nix-darwin.lib.darwinSystem {
+          inherit (configData.host) system;
+          modules = [
+            configData.host.moduleConfig
+            # ...
+          ];
+        };
+    };
+  };
+}
+```
