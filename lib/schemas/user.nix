@@ -3,29 +3,37 @@
 in
   with lib; {
     options = {
-      username = mkOption {type = types.str;};
+      username = mkOption {
+        type = types.str;
+        description = "User's Unix system login name.";
+      };
 
       modules = mkOption {
         type = types.listOf types.path;
         default = [];
+        description = "List of user-specific modular configuration paths to load.";
       };
 
       overlays = mkOption {
         default = {};
         type = common.overlaySubmodule;
+        description = "User-level overlays declarations.";
       };
 
       moduleConfig = mkOption {
         type = types.deferredModule;
         default = {};
+        description = "User-specific configuration overrides for imported modules.";
       };
       nixosConfig = mkOption {
         type = types.deferredModule;
         default = {};
+        description = "User-specific NixOS configuration block (e.g. groups, shell).";
       };
       homeConfig = mkOption {
         type = types.deferredModule;
         default = {};
+        description = "Raw user-level Home Manager configuration block.";
       };
 
       sshKeyPath = mkOption {
@@ -36,6 +44,7 @@ in
       secrets = mkOption {
         default = {};
         type = types.attrsOf common.secretBindingSubmodule;
+        description = "User-level sops secret file configuration mapping.";
       };
     };
   }
