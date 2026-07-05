@@ -49,6 +49,12 @@ in
         description = "Raw Home Manager configuration block applied globally to all users on this host.";
       };
 
+      useGlobalPkgs = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Whether Home Manager should use the global NixOS package set (inheriting all overlays).";
+      };
+
       sshKeyPath = mkOption {
         type = types.str;
         default = "/etc/ssh/ssh_host_ed25519_key";

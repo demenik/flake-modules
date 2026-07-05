@@ -44,11 +44,18 @@ in {
     inherit (configData) host users modules options loader;
 
     nixosOverlays =
-      host.overlays.nixos
-      ++ host.overlays.home
-      ++ host.overlays.both
-      ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.home ++ u.overlays.both) users)
-      ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.home ++ m.overlays.both) modules);
+      if host.useGlobalPkgs
+      then
+        host.overlays.nixos
+        ++ host.overlays.home
+        ++ host.overlays.both
+        ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.home ++ u.overlays.both) users)
+        ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.home ++ m.overlays.both) modules)
+      else
+        host.overlays.nixos
+        ++ host.overlays.both
+        ++ (lib.concatMap (u: u.overlays.nixos ++ u.overlays.both) users)
+        ++ (lib.concatMap (m: m.overlays.nixos ++ m.overlays.both) modules);
   in
     nixpkgs.lib.nixosSystem {
       inherit (host) system;
@@ -79,7 +86,7 @@ in {
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs = true;
+              inherit (host) useGlobalPkgs;
               useUserPackages = true;
               extraSpecialArgs =
                 {
@@ -110,6 +117,12 @@ in {
                 };
 
                 userModules = map (item: modulesByPath.${item.key}) userModuleClosure;
+                userOverlays =
+                  host.overlays.home
+                  ++ host.overlays.both
+                  ++ user.overlays.home
+                  ++ user.overlays.both
+                  ++ (lib.concatMap (m: m.overlays.home ++ m.overlays.both) userModules);
               in {
                 name = user.username;
                 value.imports =
@@ -127,6 +140,8 @@ in {
                   # === HM modules ===
                   ++ (map (m: m.home) userModules)
                   ++ [host.homeConfig user.homeConfig]
+                  # === HM overlays ===
+                  ++ lib.optional (!host.useGlobalPkgs) {nixpkgs.overlays = userOverlays;}
                   # === Secrets ===
                   ++ [
                     lib-inputs.sops-nix.homeModules.sops
