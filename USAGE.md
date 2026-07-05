@@ -158,12 +158,19 @@ system-level settings, hardware configurations, and provides host-level secrets
 
 ```nix
 {lib, ...}: {
+  # Optional. The hostname of the machine. Automatically configures networking.hostName.
+  hostname = "host1";
+
   # Required. The architecture of the system.
   system = "x86_64-linux";
 
   # Both required
   stateVersion = "25.11";
   hmStateVersion = "25.11";
+
+  # Optional. Whether Home Manager should use the global NixOS package set.
+  # Defaults to true. Set to false to isolate user package sets and overlays.
+  useGlobalPkgs = true;
 
   # Define the users on this host.
   # User configs can be used on multiple hosts.
