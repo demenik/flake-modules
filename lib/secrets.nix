@@ -6,7 +6,20 @@
     then "/Users/${user.username}/.ssh/id_ed25519"
     else "/home/${user.username}/.ssh/id_ed25519";
 in rec {
-  getDeclaredSecrets = modules: lib.foldl (acc: m: acc // m.secrets) {} modules;
+  getDeclaredSecrets = modules:
+    lib.foldl (acc: m: let
+      merged = lib.mapAttrs (name: val: let
+        existing = acc.${name} or null;
+      in
+        if existing == null
+        then val
+        else if existing.usedBy == val.usedBy && existing.required == val.required
+        then val
+        else throw "Secret conflict: Module '${m.name}' defines secret '${name}' with scope '${val.usedBy}' (required: ${toString val.required}), but it was already defined with scope '${existing.usedBy}' (required: ${toString existing.required}) by another module.")
+      m.secrets;
+    in
+      acc // merged) {}
+    modules;
 
   mkSopsAttrs = secrets:
     lib.mapAttrs (n: v: {
