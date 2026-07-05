@@ -19,15 +19,15 @@ with lib; {
       type = types.submodule {
         options = {
           nixos = mkOption {
-            type = types.listOf types.unspecified;
+            type = types.listOf types.raw;
             default = [];
           };
           home = mkOption {
-            type = types.listOf types.unspecified;
+            type = types.listOf types.raw;
             default = [];
           };
           both = mkOption {
-            type = types.listOf types.unspecified;
+            type = types.listOf types.raw;
             default = [];
           };
         };
