@@ -6,7 +6,10 @@ with lib; {
       type = types.str;
       default = "unknown-module";
     };
-    moduleOptions = mkOption {default = {};};
+    moduleOptions = mkOption {
+      type = types.attrs;
+      default = {};
+    };
 
     # === Modules ===
     modules = mkOption {
