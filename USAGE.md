@@ -49,7 +49,9 @@ all configurations:
 
   outputs = { flake-modules, ... } @ inputs: {
     # mkNixosConfigurations and mkHomeConfigurations support the following arguments:
-    # - hostsDir: Path to a directory containing host configurations (optional)
+    # - hostsDir: Path to a directory containing host configurations (optional).
+    #             Discovers directories (e.g. ./hosts/myhost/default.nix) and
+    #             flat files (e.g. ./hosts/myhost.nix).
     # - hosts: Attribute set of hostName to hostPath mapping (optional)
     # - inputs: The flake inputs (required)
     # - extraSpecialArgs: Extra arguments passed to modules (optional)
@@ -161,6 +163,8 @@ Everything is optional unless staten otherwise.
 A host configuration represents a physical or virtual machine. It defines
 system-level settings, hardware configurations, and provides host-level secrets
 (required by modules with `usedBy = "nixos"` or `"both"`).
+
+Hosts can be defined either as a folder (containing `default.nix`) or as a flat Nix file (e.g., `hosts/myhost.nix`).
 
 `nixosConfig` can optionally take arguments like `pkgs`, `inputs`, `lib`, `config`, ...
 

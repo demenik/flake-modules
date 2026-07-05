@@ -4,9 +4,20 @@
   mkHome,
   ...
 }: let
-  getDirs = dir:
-    if builtins.pathExists dir
-    then lib.filterAttrs (name: type: type == "directory") (builtins.readDir dir)
+  discoverHostsInDir = dir:
+    if dir != null && builtins.pathExists dir
+    then let
+      files = builtins.readDir dir;
+      dirs = lib.filterAttrs (name: type: type == "directory") files;
+      nixFiles = lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix") files;
+
+      discoveredDirs = lib.mapAttrs (name: _: dir + "/${name}") dirs;
+      discoveredFiles = lib.listToAttrs (map (name: {
+        name = lib.removeSuffix ".nix" name;
+        value = dir + "/${name}";
+      }) (lib.attrNames nixFiles));
+    in
+      discoveredDirs // discoveredFiles
     else {};
 in {
   mkNixosConfigurations = {
@@ -16,14 +27,7 @@ in {
     extraSpecialArgs ? {},
     extraModules ? [],
   }: let
-    discoveredHosts =
-      if (hostsDir != null)
-      then
-        lib.mapAttrs
-        (hostName: _: hostsDir + "/${hostName}")
-        (getDirs hostsDir)
-      else {};
-
+    discoveredHosts = discoverHostsInDir hostsDir;
     allHosts = discoveredHosts // hosts;
   in
     lib.mapAttrs
@@ -41,15 +45,7 @@ in {
     extraModules ? [],
   }: let
     loader = import ./module-loader.nix {inherit lib inputs;};
-
-    discoveredHosts =
-      if (hostsDir != null)
-      then
-        lib.mapAttrs
-        (hostName: _: hostsDir + "/${hostName}")
-        (getDirs hostsDir)
-      else {};
-
+    discoveredHosts = discoverHostsInDir hostsDir;
     allHosts = discoveredHosts // hosts;
 
     getUserConfigForHost = hostName: hostPath: let
