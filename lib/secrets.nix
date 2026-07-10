@@ -224,7 +224,7 @@ in rec {
         assertion =
           if req.perUser or false
           then (!req.required || allUserSecretsMerged ? ${qualName})
-          else (!req.required || nixosHostSecrets ? ${qualName} || (req.usedBy == "both" && allUserSecretsMerged ? ${qualName}));
+          else (!req.required || nixosHostSecrets ? ${qualName} || (userAliases ? ${qualName}) || (req.usedBy == "both" && allUserSecretsMerged ? ${qualName}));
         message =
           if req.perUser or false
           then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but no user has configured it (perUser is enabled)."
