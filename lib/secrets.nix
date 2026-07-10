@@ -108,16 +108,46 @@ in rec {
       then host.hostname
       else "unspecified";
     hostSecrets = resolveBindings "Host '${hostName}'" declaredSecrets (host.secrets or {});
-    resolvedUserSecretsList = map (u: resolveBindings "User '${u.username}'" declaredSecrets (u.secrets or {})) users;
-    userSecrets = lib.foldl (acc: uSecs: mergeSecretsChecked "NixOS user secrets" acc uSecs) {} resolvedUserSecretsList;
 
-    resolvedSecrets =
+    # Resolve user secrets individually per user
+    resolvedUserSecrets =
+      map (u: {
+        inherit (u) username;
+        secrets = resolveBindings "User '${u.username}'" declaredSecrets (u.secrets or {});
+      })
+      users;
+
+    # Merge all resolved user secrets for assertion checks
+    allUserSecretsMerged = lib.foldl (acc: uSecInfo: mergeSecretsChecked "NixOS user secrets" acc uSecInfo.secrets) {} resolvedUserSecrets;
+
+    # Filter host secrets to NixOS/both scopes
+    nixosHostSecrets =
       lib.filterAttrs
       (n: v:
         if declaredSecrets ? ${n}
         then declaredSecrets.${n}.usedBy == "nixos" || declaredSecrets.${n}.usedBy == "both"
         else true)
       hostSecrets;
+
+    # Prepare user-both secrets mapped to user-specific paths
+    nixosUserBothSecrets = lib.foldl (acc: uSecInfo: let
+      userBothSecs =
+        lib.filterAttrs (
+          n: v:
+            if declaredSecrets ? ${n}
+            then declaredSecrets.${n}.usedBy == "both"
+            else false
+        )
+        uSecInfo.secrets;
+      mapped =
+        lib.mapAttrs' (
+          qualName: v:
+            lib.nameValuePair "user/${uSecInfo.username}/${qualName}" v
+        )
+        userBothSecs;
+    in
+      acc // mapped) {}
+    resolvedUserSecrets;
 
     nixosSecrets =
       lib.filterAttrs
@@ -129,12 +159,43 @@ in rec {
       (n: req: req.usedBy == "hm")
       declaredSecrets;
 
+    # Determine which user-both secrets are bound by exactly one user to generate aliases
+    bothSecretBindingsCount = lib.foldl (acc: uSecInfo: let
+      bothNames = lib.attrNames (lib.filterAttrs (
+          n: v:
+            declaredSecrets.${n}.usedBy or null == "both"
+        )
+        uSecInfo.secrets);
+    in
+      lib.foldl (a: name: a // {${name} = (a.${name} or 0) + 1;}) acc bothNames) {}
+    resolvedUserSecrets;
+
+    userBothAliases =
+      lib.concatMapAttrs (
+        qualName: count: let
+          bindingUser = lib.findFirst (uSecInfo: uSecInfo.secrets ? ${qualName}) null resolvedUserSecrets;
+        in
+          if count == 1 && bindingUser != null
+          then {
+            ${qualName} = nixosUserBothSecrets."user/${bindingUser.username}/${qualName}";
+          }
+          else {}
+      )
+      bothSecretBindingsCount;
+
+    sopsAttrsForHost = mkSopsAttrs "nixos" declaredSecrets nixosHostSecrets;
+    sopsAttrsForUserBoth = mkSopsAttrs "nixos" declaredSecrets nixosUserBothSecrets;
+    sopsAttrsForAliases = mkSopsAttrs "nixos" declaredSecrets userBothAliases;
+
+    # Merge secrets: user-specific first, then aliases, then host bindings (host wins conflicts)
+    allNixosSopsSecrets = sopsAttrsForUserBoth // sopsAttrsForAliases // sopsAttrsForHost;
+
     userSshKeys = map (getUserSshKey host) users;
   in {
     sops = {
       age.sshKeyPaths = lib.mkDefault ([host.sshKeyPath] ++ userSshKeys);
       gnupg.sshKeyPaths = lib.mkDefault ((host.gnupgKeyPaths or []) ++ (lib.flatten (map (u: u.gnupgKeyPaths or []) users)));
-      secrets = mkSopsAttrs "nixos" declaredSecrets resolvedSecrets;
+      secrets = allNixosSopsSecrets;
     };
 
     assertions =
@@ -144,8 +205,14 @@ in rec {
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (resolvedSecrets ? ${qualName});
-        message = "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
+        assertion =
+          if req.usedBy == "both"
+          then (!req.required || (nixosHostSecrets ? ${qualName} && allUserSecretsMerged ? ${qualName}))
+          else (!req.required || (nixosHostSecrets ? ${qualName}));
+        message =
+          if req.usedBy == "both"
+          then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it must be configured on both host and user levels."
+          else "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
       })
       nixosSecrets
       ++ lib.mapAttrsToList (qualName: req: let
@@ -154,7 +221,7 @@ in rec {
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (userSecrets ? ${qualName});
+        assertion = !req.required || (allUserSecretsMerged ? ${qualName});
         message = "NixOS: Module '${req.module}' requires the HM secret '${req.name}' (${description}scope: hm), but no user has configured it. Add it to a user's secrets.";
       })
       hmOnlySecrets;

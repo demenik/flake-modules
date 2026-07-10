@@ -4,7 +4,10 @@
   stateVersion = "25.11";
   hmStateVersion = "25.11";
 
-  users = [../../users/testuser];
+  users = [
+    ../../users/testuser
+    ../../users/testuser2
+  ];
   modules = [
     {
       name = "my-external-module";

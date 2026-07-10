@@ -350,6 +350,12 @@ To make configuration debugging easier, the framework performs proactive checks 
 - **Path Existence Verification**: Prior to schema evaluation, the loader checks that files exist on disk, raising a clear `"Configuration path '...' does not exist on disk"` error instead of cryptic Nix internal path lookup errors.
 - **Duplicate Module Name Detection**: When importing modules, the loader verifies that module names are unique across the transitively resolved closure. If two modules are defined at different filesystem paths with the same name, an error lists the duplicate name and the source paths.
 
+## Per-User Secrets on NixOS Level
+
+When multiple users deploy the same module containing `both`-scoped secrets (which are decrypted both on NixOS and Home Manager levels) on a single host, their secrets are resolved individually to prevent collisions:
+- **Individual Paths**: Each user's secret is available on NixOS under `config.sops.secrets."user/<username>/<module-name>/<secret-name>"`.
+- **Backward Compatibility Aliases**: If a `both`-scoped secret is bound by exactly one user on the host, the framework automatically registers aliases under `config.sops.secrets."<module-name>/<secret-name>"` and `config.sops.secrets."<secret-name>"`. This ensures that single-user configurations continue to work without modifications.
+
 ## Configuration Introspection & Querying
 
 To inspect resolved modules, active users, and declared secrets of a host without performing a full build:

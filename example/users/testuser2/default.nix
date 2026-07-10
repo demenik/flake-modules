@@ -1,0 +1,19 @@
+{
+  username = "testuser2";
+
+  modules = [../../modules/test];
+  moduleConfig = {
+    demenix.test.message = "Test 2";
+  };
+
+  secrets = {
+    test-hm.path = ./secrets/test-hm.yaml;
+    test-both.path = ./secrets/test-both.yaml;
+  };
+
+  nixosConfig = {
+    users.users.testuser2 = {
+      isNormalUser = true;
+    };
+  };
+}
