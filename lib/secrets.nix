@@ -5,17 +5,6 @@
     else if host.system == "x86_64-darwin" || host.system == "aarch64-darwin"
     then "/Users/${user.username}/.ssh/id_ed25519"
     else "/home/${user.username}/.ssh/id_ed25519";
-
-  mergeSecretsChecked = contextMsg: a: b: let
-    overlapping = lib.intersectAttrs a b;
-    conflicts = lib.filterAttrs (name: _: a.${name} != b.${name}) overlapping;
-  in
-    if conflicts != {}
-    then let
-      conflictNames = lib.concatStringsSep ", " (lib.attrNames conflicts);
-    in
-      throw "${contextMsg}: Secret name collision for: ${conflictNames}. The same secret name is bound by both sources with different values. Rename one of the bindings to resolve this conflict."
-    else a // b;
 in rec {
   getDeclaredSecrets = modules:
     lib.foldl (acc: m: let
@@ -60,7 +49,15 @@ in rec {
     sopsEntries =
       lib.mapAttrs (
         qualName: v: let
-          decl = declaredSecrets.${qualName};
+          realQualName =
+            if lib.hasPrefix "user/" qualName
+            then let
+              parts = lib.splitString "/" qualName;
+              realParts = lib.drop 2 parts;
+            in
+              lib.concatStringsSep "/" realParts
+            else qualName;
+          decl = declaredSecrets.${realQualName} or (throw "Internal error: declared secret not found for '${realQualName}' (from '${qualName}')");
           override = v.${scope} or null;
           applyOverride = field:
             if override != null && override.${field} != null
@@ -86,10 +83,19 @@ in rec {
     aliases =
       lib.concatMapAttrs (
         qualName: entry: let
-          decl = declaredSecrets.${qualName};
+          realQualName =
+            if lib.hasPrefix "user/" qualName
+            then let
+              parts = lib.splitString "/" qualName;
+              realParts = lib.drop 2 parts;
+            in
+              lib.concatStringsSep "/" realParts
+            else qualName;
+          decl = declaredSecrets.${realQualName};
           isUnique = lib.length (groupedByUnqualified.${decl.name} or []) == 1;
+          hasUserPrefix = lib.hasPrefix "user/" qualName;
         in
-          if isUnique && decl.name != qualName
+          if isUnique && decl.name != qualName && !hasUserPrefix
           then {${decl.name} = entry;}
           else {}
       )
@@ -118,7 +124,7 @@ in rec {
       users;
 
     # Merge all resolved user secrets for assertion checks
-    allUserSecretsMerged = lib.foldl (acc: uSecInfo: mergeSecretsChecked "NixOS user secrets" acc uSecInfo.secrets) {} resolvedUserSecrets;
+    allUserSecretsMerged = lib.foldl (acc: uSecInfo: acc // uSecInfo.secrets) {} resolvedUserSecrets;
 
     # Filter host secrets to NixOS/both scopes
     nixosHostSecrets =

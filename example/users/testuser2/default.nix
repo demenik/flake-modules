@@ -3,7 +3,7 @@
 
   modules = [../../modules/test];
   moduleConfig = {
-    demenix.test.message = "Test 2";
+    demenix.test.message = "Test";
   };
 
   secrets = {
