@@ -22,6 +22,8 @@ as this project ages. Make sure to test your config after updating flake-modules
     the NixOS configurations.
 - **Secrets Managment**: Define secret requirements using `sops-nix` inside modules, which prompt
   users to configure them on rebuild.
+- **Auto-Update Overlays**: The framework provides a builder for a CLI tool (`nix run .#overlay-update`) that you can
+  use inside your configuration that allows you to easily update `rev` and `hash` fields of fetcher-based overlay packages.
 
 ## Quick Start
 
@@ -46,11 +48,16 @@ it as an input to your `flake.nix`:
     };
   };
 
-  outputs = { flake-modules, ... } @ inputs: let
+  outputs = { flake-modules, nixpkgs, ... } @ inputs: let
     hostsDir = ./hosts;
   in {
     nixosConfigurations = flake-modules.lib.mkNixosConfigurations { inherit hostsDir inputs; };
     homeConfigurations  = flake-modules.lib.mkHomeConfigurations  { inherit hostsDir inputs; };
+
+    apps."x86_64-linux".overlay-update = flake-modules.lib.mkUpdaterApp {
+      pkgs = nixpkgs.legacyPackages."x86_64-linux";
+      inherit hostsDir inputs;
+    };
   };
 }
 ```

@@ -40,6 +40,6 @@
   };
 in {
   inherit (builders) mkHost mkHome;
-  inherit (discovery) mkNixosConfigurations mkHomeConfigurations;
+  inherit (discovery) mkNixosConfigurations mkHomeConfigurations mkUpdaterApp;
   inherit queryHost;
 }

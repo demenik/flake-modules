@@ -48,6 +48,11 @@
     in
       nixosChecks // homeChecks;
 
+    apps."x86_64-linux".overlay-update = lib.mkUpdaterApp {
+      pkgs = nixpkgs.legacyPackages."x86_64-linux";
+      inherit hostsDir inputs;
+    };
+
     inherit nixosConfigurations homeConfigurations;
   };
 }

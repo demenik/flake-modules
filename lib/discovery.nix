@@ -68,4 +68,8 @@ in {
       );
   in
     lib.foldl' (acc: hostName: acc // (getUserConfigForHost hostName allHosts.${hostName})) {} (builtins.attrNames allHosts);
+
+  mkUpdaterApp = import ./updater/app.nix {
+    inherit lib discoverHostsInDir;
+  };
 }

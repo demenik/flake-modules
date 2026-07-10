@@ -390,3 +390,41 @@ outputs = { flake-modules, nix-darwin, ... } @ inputs: {
   };
 }
 ```
+
+## Updating Overlays
+
+The framework provides a builder to create a CLI tool for your configurations.
+This tool simplifies the process of updating fetcher-based packages inside your overlays.
+
+To use it, expose it as an app in your `flake.nix` (see Quick Start in `README.md`):
+
+```nix
+apps."x86_64-linux".overlay-update = flake-modules.lib.mkUpdaterApp {
+  pkgs = nixpkgs.legacyPackages."x86_64-linux";
+  inherit hostsDir inputs;
+};
+```
+
+Whenever you use a fetcher (like `fetchFromGitHub`) in an overlay (in modules, hosts, or users), `flake-modules` evaluates its exact source location.
+
+To automatically bump the `rev` and update the `hash` for all your overlays:
+
+```bash
+# Update all overlays in your configuration
+nix run .#overlay-update
+
+# Update a specific package inside your overlays
+nix run .#overlay-update -- my-package
+
+# Check for updates without modifying files (dry run)
+nix run .#overlay-update -- --dry-run
+
+# View available arguments
+nix run .#overlay-update -- --help
+```
+
+The tool will:
+1. Identify the fetcher URL/repository.
+2. Query the latest commit from the upstream repository.
+3. Automatically prefetch the source to obtain the new hash.
+4. Replace the old `rev` and `hash` in your Nix configuration files.
