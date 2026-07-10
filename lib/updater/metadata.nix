@@ -22,6 +22,10 @@
       url = val.url or null;
       owner = val.owner or null;
       repo = val.repo or null;
+      leaveDotGit = val.leaveDotGit or false;
+      deepClone = val.deepClone or false;
+      fetchSubmodules = val.fetchSubmodules or val.gitSubmodules or false;
+      sparseCheckout = val.sparseCheckout or null;
     }
     else null;
 
@@ -60,7 +64,7 @@
                       {
                         name = fullName;
                         inherit (pos) file line column;
-                        inherit (fetcherInfo) rev hash url owner repo;
+                        inherit (fetcherInfo) rev hash url owner repo leaveDotGit deepClone fetchSubmodules sparseCheckout;
                       }
                     ]
                     else []
