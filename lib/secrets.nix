@@ -143,13 +143,13 @@ in rec {
         else true)
       hostSecrets;
 
-    # Prepare user-both secrets mapped to user-specific paths
-    nixosUserBothSecrets = lib.foldl (acc: uSecInfo: let
-      userBothSecs =
+    # Prepare user-provided secrets (both or nixos) mapped to user-specific paths
+    nixosUserSecrets = lib.foldl (acc: uSecInfo: let
+      relevantSecs =
         lib.filterAttrs (
           n: v:
             if declaredSecrets ? ${n}
-            then declaredSecrets.${n}.usedBy == "both"
+            then declaredSecrets.${n}.usedBy == "both" || declaredSecrets.${n}.usedBy == "nixos"
             else false
         )
         uSecInfo.secrets;
@@ -158,7 +158,7 @@ in rec {
           qualName: v:
             lib.nameValuePair "user/${uSecInfo.username}/${qualName}" v
         )
-        userBothSecs;
+        relevantSecs;
     in
       acc // mapped) {}
     resolvedUserSecrets;
@@ -173,18 +173,18 @@ in rec {
       (n: req: req.usedBy == "hm")
       declaredSecrets;
 
-    # Determine which user-both secrets are bound by exactly one user to generate aliases
-    bothSecretBindingsCount = lib.foldl (acc: uSecInfo: let
-      bothNames = lib.attrNames (lib.filterAttrs (
+    # Determine which user secrets are bound by exactly one user to generate aliases
+    userSecretBindingsCount = lib.foldl (acc: uSecInfo: let
+      relevantNames = lib.attrNames (lib.filterAttrs (
           n: v:
-            declaredSecrets.${n}.usedBy or null == "both"
+            declaredSecrets.${n}.usedBy or null == "both" || declaredSecrets.${n}.usedBy or null == "nixos"
         )
         uSecInfo.secrets);
     in
-      lib.foldl (a: name: a // {${name} = (a.${name} or 0) + 1;}) acc bothNames) {}
+      lib.foldl (a: name: a // {${name} = (a.${name} or 0) + 1;}) acc relevantNames) {}
     resolvedUserSecrets;
 
-    userBothAliases =
+    userAliases =
       lib.concatMapAttrs (
         qualName: count: let
           bindingUser = lib.findFirst (uSecInfo: uSecInfo.secrets ? ${qualName}) null resolvedUserSecrets;
@@ -192,18 +192,18 @@ in rec {
           if count == 1 && bindingUser != null
           then
             builtins.trace "warning: Both-scoped secret '${qualName}' from user '${bindingUser.username}' is implicitly mapped globally to NixOS. This is deprecated. Please bind it explicitly in host.secrets as well." {
-              ${qualName} = nixosUserBothSecrets."user/${bindingUser.username}/${qualName}";
+              ${qualName} = nixosUserSecrets."user/${bindingUser.username}/${qualName}";
             }
           else {}
       )
-      bothSecretBindingsCount;
+      userSecretBindingsCount;
 
     sopsAttrsForHost = mkSopsAttrs "nixos" declaredSecrets nixosHostSecrets;
-    sopsAttrsForUserBoth = mkSopsAttrs "nixos" declaredSecrets nixosUserBothSecrets;
-    sopsAttrsForAliases = mkSopsAttrs "nixos" declaredSecrets userBothAliases;
+    sopsAttrsForUser = mkSopsAttrs "nixos" declaredSecrets nixosUserSecrets;
+    sopsAttrsForAliases = mkSopsAttrs "nixos" declaredSecrets userAliases;
 
     # Merge secrets: user-specific first, then aliases, then host bindings (host wins conflicts)
-    allNixosSopsSecrets = sopsAttrsForUserBoth // sopsAttrsForAliases // sopsAttrsForHost;
+    allNixosSopsSecrets = sopsAttrsForUser // sopsAttrsForAliases // sopsAttrsForHost;
 
     userSshKeys = map (getUserSshKey host) users;
   in {
