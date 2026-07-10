@@ -30,15 +30,23 @@ in rec {
           directBinding = bindings.${qualName} or null;
           unqualBinding = bindings.${decl.name} or null;
           isAmbiguous = lib.length (groupedByUnqualified.${decl.name} or []) > 1;
+          binding =
+            if directBinding != null
+            then directBinding
+            else if unqualBinding != null
+            then
+              if isAmbiguous
+              then throw "${contextMsg}: Ambiguous secret binding for '${decl.name}'. Multiple modules declare a secret with this name: ${lib.concatStringsSep ", " (map (s: s.module) groupedByUnqualified.${decl.name})}. Please use the fully qualified name (e.g. 'moduleName/secretName') in your bindings."
+              else builtins.trace "warning: Unqualified secret binding for '${decl.name}' in ${contextMsg} is deprecated. Please change it to '${qualName}'." unqualBinding
+            else null;
+          hasHmOverride = binding != null && binding ? hm && binding.hm != null;
+          hasNixosOverride = binding != null && binding ? nixos && binding.nixos != null;
         in
-          if directBinding != null
-          then directBinding
-          else if unqualBinding != null
-          then
-            if isAmbiguous
-            then throw "${contextMsg}: Ambiguous secret binding for '${decl.name}'. Multiple modules declare a secret with this name: ${lib.concatStringsSep ", " (map (s: s.module) groupedByUnqualified.${decl.name})}. Please use the fully qualified name (e.g. 'moduleName/secretName') in your bindings."
-            else builtins.trace "warning: Unqualified secret binding for '${decl.name}' in ${contextMsg} is deprecated. Please change it to '${qualName}'." unqualBinding
-          else null
+          if hasHmOverride && decl.usedBy == "nixos"
+          then builtins.trace "warning: Secret binding '${qualName}' in ${contextMsg} specifies an 'hm' override, but the secret's scope is 'nixos'. This override has no effect and will be ignored." binding
+          else if hasNixosOverride && decl.usedBy == "hm"
+          then builtins.trace "warning: Secret binding '${qualName}' in ${contextMsg} specifies a 'nixos' override, but the secret's scope is 'hm'. This override has no effect and will be ignored." binding
+          else binding
       )
       declaredSecrets;
   in

@@ -16,7 +16,12 @@
   ];
 
   secrets = {
-    test-nixos.path = ./secrets/test-nixos.yaml;
+    test-nixos = {
+      path = ./secrets/test-nixos.yaml;
+      hm = {
+        decryptedPath = "/home/user/.secrets/test-nixos";
+      };
+    };
     test-both.path = ../../users/testuser/secrets/test-both.yaml;
   };
 
