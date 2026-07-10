@@ -72,6 +72,11 @@ in rec {
       (n: req: req.usedBy == "nixos" || req.usedBy == "both")
       declaredSecrets;
 
+    hmOnlySecrets =
+      lib.filterAttrs
+      (n: req: req.usedBy == "hm")
+      declaredSecrets;
+
     userSshKeys = map (getUserSshKey host) users;
   in {
     sops = {
@@ -90,7 +95,17 @@ in rec {
         assertion = !req.required || (allSecrets ? ${name});
         message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured.";
       })
-      nixosSecrets;
+      nixosSecrets
+      ++ lib.mapAttrsToList (name: req: let
+        description =
+          if req.description != null
+          then "${req.description}, "
+          else "";
+      in {
+        assertion = !req.required || (userSecrets ? ${name});
+        message = "NixOS: Module requires the HM secret '${name}' (${description}scope: hm), but no user has configured it. Add it to a user's secrets.";
+      })
+      hmOnlySecrets;
   };
 
   mkHomeConfig = {
