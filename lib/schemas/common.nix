@@ -1,5 +1,35 @@
 {lib}:
-with lib; {
+with lib; let
+  secretBindingOverride = types.submodule {
+    options = {
+      decryptedPath = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Scope-specific override for the decrypted secret path.";
+      };
+      mode = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Scope-specific override for the permissions mode.";
+      };
+      owner = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Scope-specific override for the file owner.";
+      };
+      group = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Scope-specific override for the file group.";
+      };
+      restartUnits = mkOption {
+        type = types.nullOr (types.listOf types.str);
+        default = null;
+        description = "Scope-specific override for systemd units to restart.";
+      };
+    };
+  };
+in {
   overlaySubmodule = types.submodule {
     options = {
       nixos = mkOption {
@@ -55,6 +85,16 @@ with lib; {
         type = types.nullOr (types.listOf types.str);
         default = null;
         description = "Systemd units to restart when the secret changes.";
+      };
+      nixos = mkOption {
+        type = types.nullOr secretBindingOverride;
+        default = null;
+        description = "NixOS-specific overrides for this secret binding.";
+      };
+      hm = mkOption {
+        type = types.nullOr secretBindingOverride;
+        default = null;
+        description = "Home Manager-specific overrides for this secret binding.";
       };
     };
   };

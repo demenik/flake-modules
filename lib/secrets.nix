@@ -32,17 +32,26 @@ in rec {
       acc // merged) {}
     modules;
 
-  mkSopsAttrs = secrets:
+  mkSopsAttrs = scope: secrets:
     lib.mapAttrs (
-      n: v:
+      n: v: let
+        override = v.${scope} or null;
+        applyOverride = field:
+          if override != null && override.${field} != null
+          then override.${field}
+          else v.${field};
+      in
         lib.filterAttrs (name: val: val != null) {
           sopsFile = v.path;
           key =
             if v.key != null
             then v.key
             else n;
-          path = v.decryptedPath;
-          inherit (v) mode owner group restartUnits;
+          path = applyOverride "decryptedPath";
+          mode = applyOverride "mode";
+          owner = applyOverride "owner";
+          group = applyOverride "group";
+          restartUnits = applyOverride "restartUnits";
         }
     )
     secrets;
@@ -82,7 +91,7 @@ in rec {
     sops = {
       age.sshKeyPaths = lib.mkDefault ([host.sshKeyPath] ++ userSshKeys);
       gnupg.sshKeyPaths = lib.mkDefault ((host.gnupgKeyPaths or []) ++ (lib.flatten (map (u: u.gnupgKeyPaths or []) users)));
-      secrets = mkSopsAttrs resolvedSecrets;
+      secrets = mkSopsAttrs "nixos" resolvedSecrets;
     };
 
     assertions =
@@ -136,7 +145,7 @@ in rec {
     sops = {
       age.sshKeyPaths = lib.mkDefault [defaultSshKey];
       gnupg.sshKeyPaths = lib.mkDefault (user.gnupgKeyPaths or []);
-      secrets = mkSopsAttrs resolvedSecrets;
+      secrets = mkSopsAttrs "hm" resolvedSecrets;
     };
 
     assertions =

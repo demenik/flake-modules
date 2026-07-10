@@ -225,6 +225,17 @@ Hosts can be defined either as a folder (containing `default.nix`) or as a flat 
       owner = "nginx";                            # Custom file owner
       group = "nginx";                            # Custom file group
       restartUnits = [ "nginx.service" ];         # Systemd units to restart on secret change
+
+      # Optional. Scope-specific overrides for secrets with usedBy = "both".
+      # These override the base values above when resolved in the respective scope.
+      nixos = {
+        owner = "nginx";
+        decryptedPath = "/run/secrets/nginx-secret";
+      };
+      hm = {
+        decryptedPath = "/home/user1/.secrets/my-secret";
+        mode = "0600";
+      };
     };
   };
 
