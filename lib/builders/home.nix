@@ -41,6 +41,19 @@
   in {
     warnings = lib.optional (module.nixos != {}) "${baseMsg}${instructionMsg}";
   };
+
+  mkSecretWarning = module: let
+    nixosOnly = lib.filterAttrs (n: s: s.usedBy == "nixos") module.secrets;
+    bothScope = lib.filterAttrs (n: s: s.usedBy == "both") module.secrets;
+    nixosNames = lib.attrNames nixosOnly;
+    bothNames = lib.attrNames bothScope;
+  in {
+    warnings =
+      lib.optional (nixosNames != [])
+      "Module '${module.name}' declares NixOS-only secrets (${lib.concatStringsSep ", " nixosNames}) which are not available in standalone HM mode."
+      ++ lib.optional (bothNames != [])
+      "Module '${module.name}' declares secrets with scope 'both' (${lib.concatStringsSep ", " bothNames}). Only the HM side is active in standalone HM mode; the NixOS side will not be configured.";
+  };
 in
   home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
@@ -77,5 +90,6 @@ in
       ++ [(introspection.mkHomeIntrospection {inherit host user modules secrets;})]
       # === Warnings ===
       ++ (map mkModuleWarning modules)
+      ++ (map mkSecretWarning modules)
       ++ extraModules;
   }
