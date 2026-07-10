@@ -66,7 +66,6 @@ in rec {
     userSecrets = lib.foldl (acc: u:
       mergeSecretsChecked "NixOS secrets: user '${u.username}'" acc (u.secrets or {})) {}
     users;
-    allSecrets = mergeSecretsChecked "NixOS secrets" hostSecrets userSecrets;
 
     resolvedSecrets =
       lib.filterAttrs
@@ -74,7 +73,7 @@ in rec {
         if declaredSecrets ? ${n}
         then declaredSecrets.${n}.usedBy == "nixos" || declaredSecrets.${n}.usedBy == "both"
         else true)
-      allSecrets;
+      hostSecrets;
 
     nixosSecrets =
       lib.filterAttrs
@@ -101,8 +100,8 @@ in rec {
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (allSecrets ? ${name});
-        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured.";
+        assertion = !req.required || (hostSecrets ? ${name});
+        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
       })
       nixosSecrets
       ++ lib.mapAttrsToList (name: req: let
@@ -123,9 +122,7 @@ in rec {
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
-    hostSecrets = host.secrets or {};
     userSecrets = user.secrets or {};
-    allSecrets = mergeSecretsChecked "HM (${user.username}) secrets" hostSecrets userSecrets;
 
     resolvedSecrets =
       lib.filterAttrs
@@ -133,7 +130,7 @@ in rec {
         if declaredSecrets ? ${n}
         then declaredSecrets.${n}.usedBy == "hm" || declaredSecrets.${n}.usedBy == "both"
         else true)
-      allSecrets;
+      userSecrets;
 
     hmSecrets =
       lib.filterAttrs
@@ -155,8 +152,8 @@ in rec {
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (allSecrets ? ${name});
-        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured.";
+        assertion = !req.required || (userSecrets ? ${name});
+        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured in user secrets.";
       })
       hmSecrets;
   };

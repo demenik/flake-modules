@@ -9,6 +9,7 @@
 
   secrets = {
     test-nixos.path = ./testhost/secrets/test-nixos.yaml;
+    test-both.path = ../users/testuser/secrets/test-both.yaml;
   };
 
   nixosConfig = {
