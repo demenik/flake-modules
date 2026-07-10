@@ -10,52 +10,93 @@ from git_utils import run_cmd, get_flake_store_path, resolve_git_url, update_fil
 from prefetch import prefetch_package
 
 
-def process_package(pkg: Dict[str, Any], flake_path: Optional[str]) -> None:
-    name: Optional[str] = pkg.get("name")
-    file_path: Optional[str] = pkg.get("file")
-    line_raw: Optional[int] = pkg.get("line")
-    line = (line_raw - 1) if line_raw is not None else 0  # 0-indexed
-    current_rev: Optional[str] = pkg.get("rev")
-    current_hash: Optional[str] = pkg.get("hash")
-
-    if not name or not file_path or not current_rev or not current_hash:
-        print(f"Skipping {name or 'unknown'}: Missing required attributes")
+def run_update(metadata: List[Dict[str, Any]], flake_path: Optional[str]) -> None:
+    if not metadata:
+        print("No overlay packages found to update.")
         return
 
-    if flake_path and file_path.startswith(flake_path):
-        file_path = file_path.replace(flake_path, ".", 1)
+    metadata_sorted = sorted(metadata, key=lambda x: x.get("name", ""))
+    max_name_len = max(len(pkg.get("name", "")) for pkg in metadata_sorted)
 
-    if not os.path.exists(file_path):
-        print(f"Skipping {name}: File {file_path} not found")
-        return
+    use_color = sys.stdout.isatty()
+    GREEN = "\033[92m" if use_color else ""
+    RED = "\033[91m" if use_color else ""
+    RESET = "\033[0m" if use_color else ""
+    GRAY = "\033[90m" if use_color else ""
 
-    git_url = resolve_git_url(pkg)
-    if not git_url:
-        print(f"Skipping {name}: Cannot determine git repository URL")
-        return
+    print("\nUpdating overlays...")
 
-    print(f"Fetching latest commit for {name} ({git_url})...")
-    head_rev = run_cmd(["git", "ls-remote", git_url, "HEAD"])
-    if not head_rev:
-        print(f"Failed to fetch HEAD for {name}")
-        return
+    for pkg in metadata_sorted:
+        name = pkg.get("name", "unknown")
+        file_path = pkg.get("file")
+        line_raw = pkg.get("line")
+        line = (line_raw - 1) if line_raw is not None else 0
+        current_rev = pkg.get("rev")
+        current_hash = pkg.get("hash")
 
-    new_rev = head_rev.split()[0]
+        has_rev_hash = bool(current_rev and current_hash)
+        git_url = resolve_git_url(pkg) if has_rev_hash else None
+        is_supported = bool(git_url)
 
-    if new_rev == current_rev:
-        print(f"{name} is already up to date")
-        return
+        if not is_supported:
+            status = f"{RED} Not supported   {RESET}"
+            if not has_rev_hash:
+                details = "Missing 'rev' or 'hash' attribute"
+            else:
+                details = "Could not resolve Git repository URL"
+            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            continue
 
-    print(f"Updating {name}: {current_rev} -> {new_rev}")
+        if flake_path and file_path and file_path.startswith(flake_path):
+            file_path = file_path.replace(flake_path, ".", 1)
 
-    new_hash = prefetch_package(pkg, new_rev)
+        if not file_path or not os.path.exists(file_path):
+            status = f"{RED} Update failed   {RESET}"
+            details = f"File {file_path or 'unknown'} not found"
+            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            continue
 
-    if not new_hash:
-        print(f"Failed to prefetch new hash for {name}")
-        return
+        head_rev = run_cmd(["git", "ls-remote", git_url, "HEAD"])
+        if not head_rev:
+            status = f"{RED} Check failed    {RESET}"
+            details = f"Failed to fetch HEAD for {git_url}"
+            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            continue
 
-    update_file(file_path, line, current_rev, current_hash, new_rev, new_hash)
-    print(f"Successfully updated {name} in {file_path}")
+        new_rev = head_rev.split()[0]
+
+        curr_short = (
+            current_rev[:7]
+            if current_rev and len(current_rev) > 20
+            else (current_rev or "")
+        )
+        new_short = new_rev[:7] if len(new_rev) > 20 else new_rev
+
+        if new_rev == current_rev:
+            status = f"{GREEN} Up to date      {RESET}"
+            details = f"{git_url} ({curr_short})"
+            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+        else:
+            new_hash = prefetch_package(pkg, new_rev)
+            if not new_hash:
+                status = f"{RED} Update failed   {RESET}"
+                details = f"Failed to prefetch new hash for {git_url}"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
+
+            try:
+                update_file(
+                    file_path, line, current_rev, current_hash, new_rev, new_hash
+                )
+                status = f"{GREEN} Updated         {RESET}"
+                details = f"{git_url} ({curr_short} -> {new_short})"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            except Exception as e:
+                status = f"{RED} Update failed   {RESET}"
+                details = f"Failed to write changes to {file_path}: {e}"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+
+    print()
 
 
 def run_dry_run(metadata: List[Dict[str, Any]]) -> None:
@@ -168,20 +209,18 @@ def main() -> None:
             deduped_metadata.append(pkg)
     metadata = deduped_metadata
 
+    if args.package:
+        metadata = [pkg for pkg in metadata if pkg.get("name") == args.package]
+        if not metadata:
+            print(f"Package '{args.package}' not found in configuration overlays.")
+            sys.exit(1)
+
     if args.dry_run:
         run_dry_run(metadata)
         return
 
-    if not metadata:
-        print("No overlay packages found to update.")
-        return
-
     flake_path = get_flake_store_path()
-
-    for pkg in metadata:
-        if args.package and pkg.get("name") != args.package:
-            continue
-        process_package(pkg, flake_path)
+    run_update(metadata, flake_path)
 
 
 if __name__ == "__main__":

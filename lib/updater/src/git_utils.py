@@ -7,7 +7,7 @@ def run_cmd(cmd: List[str]) -> Optional[str]:
     try:
         return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE).strip()
     except subprocess.CalledProcessError as e:
-        print(f"Error running command '{' '.join(cmd)}': {e.stderr}", file=sys.stderr)
+        print(f"Error running command '{' '.join(cmd)}': {e.stderr.strip()}", file=sys.stderr)
         return None
 
 
