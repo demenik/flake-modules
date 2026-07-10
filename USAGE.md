@@ -109,6 +109,11 @@ Everything is optional unless staten otherwise.
       # Optional. Whether to generate assertions to ensure this secret is configured.
       # Defaults to true. If set to false, build-time assertions are skipped.
       required = true;
+
+      # Optional. Whether this secret must be configured individually per user.
+      # Defaults to false. If set to true, the framework asserts that every user loading
+      # this module provides their own binding instead of accepting a global host fallback.
+      perUser = false;
     };
   };
 
@@ -350,9 +355,21 @@ To make configuration debugging easier, the framework performs proactive checks 
 - **Path Existence Verification**: Prior to schema evaluation, the loader checks that files exist on disk, raising a clear `"Configuration path '...' does not exist on disk"` error instead of cryptic Nix internal path lookup errors.
 - **Duplicate Module Name Detection**: When importing modules, the loader verifies that module names are unique across the transitively resolved closure. If two modules are defined at different filesystem paths with the same name, an error lists the duplicate name and the source paths.
 
-## Per-User Secrets on NixOS Level
+## Secrets Scoping & Resolution Rules
 
-When multiple users deploy the same module containing `both`-scoped secrets (which are decrypted both on NixOS and Home Manager levels) on a single host, their secrets are resolved individually to prevent collisions:
+The table below outlines how secrets are resolved and validated based on their `usedBy` scope and `perUser` flag:
+
+| `usedBy` | `perUser` | Bound in | Target Scope | Decrypted Path (NixOS / HM) | Fallback / Resolution Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`nixos`** | *Ignored* | Host | NixOS | `/run/secrets/<secret-name>` | Must be bound on the Host. User bindings are ignored. |
+| **`hm`** | `false` | Host / User | HM | *HM-only* | User-specific binding. If missing, falls back to Host binding (shared secret). |
+| **`hm`** | `true` | User | HM | *HM-only* | User-specific binding. Host fallbacks are blocked; every user *must* bind it. |
+| **`both`** | `false` | Host / User | NixOS & HM | NixOS & HM | NixOS uses Host binding. HM uses User binding, falling back to Host if missing. |
+| **`both`** | `true` | Host & User | NixOS & HM | NixOS & HM | NixOS uses Host binding *and* tracks User bindings individually. HM users *must* bind it (no fallbacks). |
+
+### Per-User Secrets on NixOS Level
+
+When multiple users deploy the same module containing `both`-scoped secrets on a single host, their secrets are resolved individually to prevent collisions:
 - **Individual Paths**: Each user's secret is available on NixOS under `config.sops.secrets."user/<username>/<module-name>/<secret-name>"`.
 - **Backward Compatibility Aliases**: If a `both`-scoped secret is bound by exactly one user on the host, the framework automatically registers aliases under `config.sops.secrets."<module-name>/<secret-name>"` and `config.sops.secrets."<secret-name>"`. This ensures that single-user configurations continue to work without modifications.
 

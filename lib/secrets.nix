@@ -213,11 +213,17 @@ in rec {
       in {
         assertion =
           if req.usedBy == "both"
-          then (!req.required || (nixosHostSecrets ? ${qualName} && allUserSecretsMerged ? ${qualName}))
+          then
+            if req.perUser or false
+            then (!req.required || (nixosHostSecrets ? ${qualName} && allUserSecretsMerged ? ${qualName}))
+            else (!req.required || (nixosHostSecrets ? ${qualName} || allUserSecretsMerged ? ${qualName}))
           else (!req.required || (nixosHostSecrets ? ${qualName}));
         message =
           if req.usedBy == "both"
-          then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it must be configured on both host and user levels."
+          then
+            if req.perUser or false
+            then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it must be configured on both host and user levels (perUser is enabled)."
+            else "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it is not configured."
           else "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
       })
       nixosSecrets
@@ -226,9 +232,10 @@ in rec {
           if req.description != null
           then "${req.description}, "
           else "";
+        hasBinding = allUserSecretsMerged ? ${qualName} || (!req.perUser or false && hostSecrets ? ${qualName});
       in {
-        assertion = !req.required || (allUserSecretsMerged ? ${qualName});
-        message = "NixOS: Module '${req.module}' requires the HM secret '${req.name}' (${description}scope: hm), but no user has configured it. Add it to a user's secrets.";
+        assertion = !req.required || hasBinding;
+        message = "NixOS: Module '${req.module}' requires the HM secret '${req.name}' (${description}scope: hm), but no user has configured it (and no global host fallback was found).";
       })
       hmOnlySecrets;
   };
@@ -240,14 +247,31 @@ in rec {
   }: let
     declaredSecrets = getDeclaredSecrets modules;
     userSecrets = resolveBindings "User '${user.username}'" declaredSecrets (user.secrets or {});
+    hostName =
+      if host ? hostname && host.hostname != null
+      then host.hostname
+      else "unspecified";
+    hostSecrets = resolveBindings "Host '${hostName}'" declaredSecrets (host.secrets or {});
 
-    resolvedSecrets =
-      lib.filterAttrs
-      (n: v:
-        if declaredSecrets ? ${n}
-        then declaredSecrets.${n}.usedBy == "hm" || declaredSecrets.${n}.usedBy == "both"
-        else true)
-      userSecrets;
+    # Resolve HM/both secrets applying host-level fallbacks if not perUser
+    resolvedSecrets = lib.filterAttrs (qualName: binding: binding != null) (
+      lib.mapAttrs (
+        qualName: decl: let
+          userBinding = userSecrets.${qualName} or null;
+          hostBinding = hostSecrets.${qualName} or null;
+          isPerUser = decl.perUser or false;
+          isRelevant = decl.usedBy == "hm" || decl.usedBy == "both";
+        in
+          if !isRelevant
+          then null
+          else if userBinding != null
+          then userBinding
+          else if !isPerUser && hostBinding != null
+          then hostBinding
+          else null
+      )
+      declaredSecrets
+    );
 
     hmSecrets =
       lib.filterAttrs
@@ -269,8 +293,8 @@ in rec {
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (userSecrets ? ${qualName});
-        message = "HM (${user.username}): Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured in user secrets.";
+        assertion = !req.required || (resolvedSecrets ? ${qualName});
+        message = "HM (${user.username}): Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured in user secrets (and no global host fallback was found).";
       })
       hmSecrets;
   };

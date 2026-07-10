@@ -18,6 +18,7 @@
   secrets = {
     test-both = {
       usedBy = "both";
+      perUser = true;
       description = "Test NixOS and HM Secret";
     };
     test-nixos = {

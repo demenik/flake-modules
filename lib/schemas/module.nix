@@ -73,6 +73,11 @@ in
               default = true;
               description = "Whether to assert at build time that this secret is configured.";
             };
+            perUser = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Whether this secret must be configured individually per user, rather than accepting a global host-level fallback.";
+            };
           };
         });
         description = "Secrets declared as required or optional dependencies by this module.";
