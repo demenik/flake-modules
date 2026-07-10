@@ -90,6 +90,8 @@ Everything is optional unless staten otherwise.
   };
 
   # Define secrets
+  # Note: The secret name is defined here as e.g. "my-secret",
+  # but will be qualified internally as "my-module/my-secret" by the framework.
   secrets = {
     "my-secret" = {
       # Optional description displayed when not configured by the user/host
@@ -210,13 +212,15 @@ Hosts can be defined either as a folder (containing `default.nix`) or as a flat 
   # Provide actual files for the secrets declared by the modules.
   # Note: NixOS will only evaluate secrets declared with
   # usedBy = "nixos" or "both".
+  # It is highly recommended to qualify your secret names using the
+  # "moduleName/secretName" format to avoid global namespace collisions.
   secrets = {
-    "my-secret" = {
+    "my-module/my-secret" = {
       # Required. Path to the encrypted sops file.
       path = ../../secrets/secrets.sops.yaml;
 
       # Optional. The key inside the sops file to extract.
-      # Defaults to the name of the secret ("my-secret").
+      # Defaults to the name of the secret ("my-module/my-secret").
       key = "other-secret";
 
       # Optional. Custom decrypted options:
@@ -302,8 +306,10 @@ Everything is optional unless stated otherwise.
   # Provide actual files for the secrets declared by the modules.
   # Note: Home Manager will evaluate secrets declared with
   # usedBy = "home" or "both".
+  # It is highly recommended to qualify your secret names using the
+  # "moduleName/secretName" format to avoid global namespace collisions.
   secrets = {
-    "user-secret" = {
+    "my-module/user-secret" = {
       path = ./secrets/user-secret.sops.yaml;
       # Automatically uses "user-secret" as the sopsKey if omitted
     };

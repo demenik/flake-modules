@@ -19,42 +19,83 @@
 in rec {
   getDeclaredSecrets = modules:
     lib.foldl (acc: m: let
-      merged = lib.mapAttrs (name: val: let
-        existing = acc.${name} or null;
+      merged = lib.mapAttrs' (name: val: let
+        qualName = "${m.name}/${name}";
       in
-        if existing == null
-        then val
-        else if existing.usedBy == val.usedBy && existing.required == val.required
-        then val
-        else throw "Secret conflict: Module '${m.name}' defines secret '${name}' with scope '${val.usedBy}' (required: ${toString val.required}), but it was already defined with scope '${existing.usedBy}' (required: ${toString existing.required}) by another module.")
+        lib.nameValuePair qualName (val
+          // {
+            inherit name;
+            module = m.name;
+            qualifiedName = qualName;
+          }))
       m.secrets;
     in
       acc // merged) {}
     modules;
 
-  mkSopsAttrs = scope: secrets:
-    lib.mapAttrs (
-      n: v: let
-        override = v.${scope} or null;
-        applyOverride = field:
-          if override != null && override.${field} != null
-          then override.${field}
-          else v.${field};
-      in
-        lib.filterAttrs (name: val: val != null) {
-          sopsFile = v.path;
-          key =
+  resolveBindings = contextMsg: declaredSecrets: bindings: let
+    groupedByUnqualified = lib.groupBy (s: s.name) (lib.attrValues declaredSecrets);
+    resolved =
+      lib.mapAttrs (
+        qualName: decl: let
+          directBinding = bindings.${qualName} or null;
+          unqualBinding = bindings.${decl.name} or null;
+          isAmbiguous = lib.length (groupedByUnqualified.${decl.name} or []) > 1;
+        in
+          if directBinding != null
+          then directBinding
+          else if unqualBinding != null
+          then
+            if isAmbiguous
+            then throw "${contextMsg}: Ambiguous secret binding for '${decl.name}'. Multiple modules declare a secret with this name: ${lib.concatStringsSep ", " (map (s: s.module) groupedByUnqualified.${decl.name})}. Please use the fully qualified name (e.g. 'moduleName/secretName') in your bindings."
+            else builtins.trace "warning: Unqualified secret binding for '${decl.name}' in ${contextMsg} is deprecated. Please change it to '${qualName}'." unqualBinding
+          else null
+      )
+      declaredSecrets;
+  in
+    lib.filterAttrs (n: v: v != null) resolved;
+
+  mkSopsAttrs = scope: declaredSecrets: resolvedSecrets: let
+    groupedByUnqualified = lib.groupBy (s: s.name) (lib.attrValues declaredSecrets);
+    sopsEntries =
+      lib.mapAttrs (
+        qualName: v: let
+          decl = declaredSecrets.${qualName};
+          override = v.${scope} or null;
+          applyOverride = field:
+            if override != null && override.${field} != null
+            then override.${field}
+            else v.${field};
+          sopsKey =
             if v.key != null
             then v.key
-            else n;
-          path = applyOverride "decryptedPath";
-          mode = applyOverride "mode";
-          owner = applyOverride "owner";
-          group = applyOverride "group";
-          restartUnits = applyOverride "restartUnits";
-        }
-    )
-    secrets;
+            else decl.name;
+        in
+          lib.filterAttrs (name: val: val != null) {
+            sopsFile = v.path;
+            key = sopsKey;
+            path = applyOverride "decryptedPath";
+            mode = applyOverride "mode";
+            owner = applyOverride "owner";
+            group = applyOverride "group";
+            restartUnits = applyOverride "restartUnits";
+          }
+      )
+      resolvedSecrets;
+
+    aliases =
+      lib.concatMapAttrs (
+        qualName: entry: let
+          decl = declaredSecrets.${qualName};
+          isUnique = lib.length (groupedByUnqualified.${decl.name} or []) == 1;
+        in
+          if isUnique && decl.name != qualName
+          then {${decl.name} = entry;}
+          else {}
+      )
+      sopsEntries;
+  in
+    sopsEntries // aliases;
 
   mkNixosConfig = {
     host,
@@ -62,10 +103,13 @@ in rec {
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
-    hostSecrets = host.secrets or {};
-    userSecrets = lib.foldl (acc: u:
-      mergeSecretsChecked "NixOS secrets: user '${u.username}'" acc (u.secrets or {})) {}
-    users;
+    hostName =
+      if host ? hostname && host.hostname != null
+      then host.hostname
+      else "unspecified";
+    hostSecrets = resolveBindings "Host '${hostName}'" declaredSecrets (host.secrets or {});
+    resolvedUserSecretsList = map (u: resolveBindings "User '${u.username}'" declaredSecrets (u.secrets or {})) users;
+    userSecrets = lib.foldl (acc: uSecs: mergeSecretsChecked "NixOS user secrets" acc uSecs) {} resolvedUserSecretsList;
 
     resolvedSecrets =
       lib.filterAttrs
@@ -90,28 +134,28 @@ in rec {
     sops = {
       age.sshKeyPaths = lib.mkDefault ([host.sshKeyPath] ++ userSshKeys);
       gnupg.sshKeyPaths = lib.mkDefault ((host.gnupgKeyPaths or []) ++ (lib.flatten (map (u: u.gnupgKeyPaths or []) users)));
-      secrets = mkSopsAttrs "nixos" resolvedSecrets;
+      secrets = mkSopsAttrs "nixos" declaredSecrets resolvedSecrets;
     };
 
     assertions =
-      lib.mapAttrsToList (name: req: let
+      lib.mapAttrsToList (qualName: req: let
         description =
           if req.description != null
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (hostSecrets ? ${name});
-        message = "NixOS: Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
+        assertion = !req.required || (resolvedSecrets ? ${qualName});
+        message = "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
       })
       nixosSecrets
-      ++ lib.mapAttrsToList (name: req: let
+      ++ lib.mapAttrsToList (qualName: req: let
         description =
           if req.description != null
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (userSecrets ? ${name});
-        message = "NixOS: Module requires the HM secret '${name}' (${description}scope: hm), but no user has configured it. Add it to a user's secrets.";
+        assertion = !req.required || (userSecrets ? ${qualName});
+        message = "NixOS: Module '${req.module}' requires the HM secret '${req.name}' (${description}scope: hm), but no user has configured it. Add it to a user's secrets.";
       })
       hmOnlySecrets;
   };
@@ -122,7 +166,7 @@ in rec {
     modules,
   }: let
     declaredSecrets = getDeclaredSecrets modules;
-    userSecrets = user.secrets or {};
+    userSecrets = resolveBindings "User '${user.username}'" declaredSecrets (user.secrets or {});
 
     resolvedSecrets =
       lib.filterAttrs
@@ -142,18 +186,18 @@ in rec {
     sops = {
       age.sshKeyPaths = lib.mkDefault [defaultSshKey];
       gnupg.sshKeyPaths = lib.mkDefault (user.gnupgKeyPaths or []);
-      secrets = mkSopsAttrs "hm" resolvedSecrets;
+      secrets = mkSopsAttrs "hm" declaredSecrets resolvedSecrets;
     };
 
     assertions =
-      lib.mapAttrsToList (name: req: let
+      lib.mapAttrsToList (qualName: req: let
         description =
           if req.description != null
           then "${req.description}, "
           else "";
       in {
-        assertion = !req.required || (userSecrets ? ${name});
-        message = "HM (${user.username}): Module requires the secret '${name}' (${description}scope: ${req.usedBy}), but it is not configured in user secrets.";
+        assertion = !req.required || (userSecrets ? ${qualName});
+        message = "HM (${user.username}): Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured in user secrets.";
       })
       hmSecrets;
   };
