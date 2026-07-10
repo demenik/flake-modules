@@ -4,13 +4,14 @@ import json
 import os
 import subprocess
 import sys
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Set
+import re
 
-from git_utils import run_cmd, get_flake_store_path, resolve_git_url, update_file
+from git_utils import run_cmd, resolve_git_url, update_file
 from prefetch import prefetch_package
 
 
-def run_update(metadata: List[Dict[str, Any]], flake_path: Optional[str]) -> None:
+def run_update(metadata: List[Dict[str, Any]]) -> None:
     if not metadata:
         print("No overlay packages found to update.")
         return
@@ -34,6 +35,9 @@ def run_update(metadata: List[Dict[str, Any]], flake_path: Optional[str]) -> Non
         current_rev = pkg.get("rev")
         current_hash = pkg.get("hash")
 
+        if current_rev is None or current_hash is None:
+            continue
+
         has_rev_hash = bool(current_rev and current_hash)
         git_url = resolve_git_url(pkg) if has_rev_hash else None
         is_supported = bool(git_url)
@@ -47,8 +51,8 @@ def run_update(metadata: List[Dict[str, Any]], flake_path: Optional[str]) -> Non
             print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
             continue
 
-        if flake_path and file_path and file_path.startswith(flake_path):
-            file_path = file_path.replace(flake_path, ".", 1)
+        if file_path:
+            file_path = re.sub(r"^/nix/store/[a-z0-9]{32}-[^/]+/", "./", file_path)
 
         if not file_path or not os.path.exists(file_path):
             status = f"{RED} Update failed   {RESET}"
@@ -219,8 +223,7 @@ def main() -> None:
         run_dry_run(metadata)
         return
 
-    flake_path = get_flake_store_path()
-    run_update(metadata, flake_path)
+    run_update(metadata)
 
 
 if __name__ == "__main__":

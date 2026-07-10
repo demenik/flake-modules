@@ -7,21 +7,10 @@ def run_cmd(cmd: List[str]) -> Optional[str]:
     try:
         return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE).strip()
     except subprocess.CalledProcessError as e:
-        print(f"Error running command '{' '.join(cmd)}': {e.stderr.strip()}", file=sys.stderr)
-        return None
-
-
-def get_flake_store_path() -> Optional[str]:
-    try:
-        out = subprocess.check_output(
-            ["nix", "flake", "metadata", "--json", "."],
-            text=True,
-            stderr=subprocess.PIPE,
+        print(
+            f"Error running command '{' '.join(cmd)}': {e.stderr.strip()}",
+            file=sys.stderr,
         )
-        import json
-
-        return json.loads(out).get("path")
-    except Exception:
         return None
 
 
