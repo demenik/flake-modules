@@ -221,18 +221,12 @@ in rec {
           else "";
       in {
         assertion =
-          if req.usedBy == "both"
-          then
-            if req.perUser or false
-            then (!req.required || (nixosHostSecrets ? ${qualName} && allUserSecretsMerged ? ${qualName}))
-            else (!req.required || (nixosHostSecrets ? ${qualName} || allUserSecretsMerged ? ${qualName}))
-          else (!req.required || (nixosHostSecrets ? ${qualName}));
+          if req.perUser or false
+          then (!req.required || allUserSecretsMerged ? ${qualName})
+          else (!req.required || nixosHostSecrets ? ${qualName} || (req.usedBy == "both" && allUserSecretsMerged ? ${qualName}));
         message =
-          if req.usedBy == "both"
-          then
-            if req.perUser or false
-            then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it must be configured on both host and user levels (perUser is enabled)."
-            else "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: both), but it is not configured."
+          if req.perUser or false
+          then "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but no user has configured it (perUser is enabled)."
           else "NixOS: Module '${req.module}' requires the secret '${req.name}' (${description}scope: ${req.usedBy}), but it is not configured on the host.";
       })
       nixosSecrets
