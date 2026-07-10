@@ -5,6 +5,17 @@
     else if host.system == "x86_64-darwin" || host.system == "aarch64-darwin"
     then "/Users/${user.username}/.ssh/id_ed25519"
     else "/home/${user.username}/.ssh/id_ed25519";
+
+  mergeSecretsChecked = contextMsg: a: b: let
+    overlapping = lib.intersectAttrs a b;
+    conflicts = lib.filterAttrs (name: _: a.${name} != b.${name}) overlapping;
+  in
+    if conflicts != {}
+    then let
+      conflictNames = lib.concatStringsSep ", " (lib.attrNames conflicts);
+    in
+      throw "${contextMsg}: Secret name collision for: ${conflictNames}. The same secret name is bound by both sources with different values. Rename one of the bindings to resolve this conflict."
+    else a // b;
 in rec {
   getDeclaredSecrets = modules:
     lib.foldl (acc: m: let
@@ -44,7 +55,7 @@ in rec {
     declaredSecrets = getDeclaredSecrets modules;
     hostSecrets = host.secrets or {};
     userSecrets = lib.foldl (acc: u: acc // (u.secrets or {})) {} users;
-    allSecrets = hostSecrets // userSecrets;
+    allSecrets = mergeSecretsChecked "NixOS secrets" hostSecrets userSecrets;
 
     resolvedSecrets =
       lib.filterAttrs
@@ -88,7 +99,7 @@ in rec {
     declaredSecrets = getDeclaredSecrets modules;
     hostSecrets = host.secrets or {};
     userSecrets = user.secrets or {};
-    allSecrets = hostSecrets // userSecrets;
+    allSecrets = mergeSecretsChecked "HM (${user.username}) secrets" hostSecrets userSecrets;
 
     resolvedSecrets =
       lib.filterAttrs
