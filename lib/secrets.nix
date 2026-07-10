@@ -54,7 +54,9 @@ in rec {
   }: let
     declaredSecrets = getDeclaredSecrets modules;
     hostSecrets = host.secrets or {};
-    userSecrets = lib.foldl (acc: u: acc // (u.secrets or {})) {} users;
+    userSecrets = lib.foldl (acc: u:
+      mergeSecretsChecked "NixOS secrets: user '${u.username}'" acc (u.secrets or {})) {}
+    users;
     allSecrets = mergeSecretsChecked "NixOS secrets" hostSecrets userSecrets;
 
     resolvedSecrets =
