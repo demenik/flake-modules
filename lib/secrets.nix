@@ -182,9 +182,10 @@ in rec {
           bindingUser = lib.findFirst (uSecInfo: uSecInfo.secrets ? ${qualName}) null resolvedUserSecrets;
         in
           if count == 1 && bindingUser != null
-          then {
-            ${qualName} = nixosUserBothSecrets."user/${bindingUser.username}/${qualName}";
-          }
+          then
+            builtins.trace "warning: Both-scoped secret '${qualName}' from user '${bindingUser.username}' is implicitly mapped globally to NixOS. This is deprecated. Please bind it explicitly in host.secrets as well." {
+              ${qualName} = nixosUserBothSecrets."user/${bindingUser.username}/${qualName}";
+            }
           else {}
       )
       bothSecretBindingsCount;
