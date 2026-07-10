@@ -188,10 +188,11 @@ in rec {
       lib.concatMapAttrs (
         qualName: count: let
           bindingUser = lib.findFirst (uSecInfo: uSecInfo.secrets ? ${qualName}) null resolvedUserSecrets;
+          req = declaredSecrets.${qualName} or {};
         in
-          if count == 1 && bindingUser != null
+          if count == 1 && bindingUser != null && !(req.perUser or false) && !(nixosHostSecrets ? ${qualName})
           then
-            builtins.trace "warning: Both-scoped secret '${qualName}' from user '${bindingUser.username}' is implicitly mapped globally to NixOS. This is deprecated. Please bind it explicitly in host.secrets as well." {
+            builtins.trace "warning: Secret '${qualName}' from user '${bindingUser.username}' is implicitly mapped globally to NixOS. This is deprecated. Please bind it explicitly in host.secrets as well." {
               ${qualName} = nixosUserSecrets."user/${bindingUser.username}/${qualName}";
             }
           else {}
