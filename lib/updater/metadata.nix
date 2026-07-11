@@ -24,6 +24,7 @@
           else null
         );
       script = val.passthru.fmUpdate.script;
+      unpack = (val.src.outputHashMode or "") == "recursive" || (val.outputHashMode or "") == "recursive";
       owner = null;
       repo = null;
       leaveDotGit = false;
@@ -38,6 +39,7 @@
       inherit (val) rev;
       hash = val.outputHash or val.hash;
       url = val.url or null;
+      unpack = (val.outputHashMode or "") == "recursive";
       owner = val.owner or null;
       repo = val.repo or null;
       leaveDotGit = val.leaveDotGit or false;
@@ -83,7 +85,7 @@
                       {
                         name = fullName;
                         inherit (pos) file line column;
-                        inherit (fetcherInfo) rev hash url owner repo leaveDotGit deepClone fetchSubmodules sparseCheckout;
+                        inherit (fetcherInfo) rev hash url unpack owner repo leaveDotGit deepClone fetchSubmodules sparseCheckout;
                         script = fetcherInfo.script or null;
                       }
                     ]

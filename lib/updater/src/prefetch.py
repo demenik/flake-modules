@@ -94,10 +94,12 @@ def prefetch_git_only(
     return None
 
 
-def prefetch_dynamic_url(url: str, current_rev: str, new_rev: str) -> Optional[str]:
+def prefetch_dynamic_url(
+    url: str, current_rev: str, new_rev: str, unpack: bool
+) -> Optional[str]:
     new_url = url.replace(current_rev, new_rev)
     cmd = ["nix", "store", "prefetch-file", "--json"]
-    if new_url.endswith(".tar.gz") or new_url.endswith(".zip"):
+    if unpack:
         cmd.append("--unpack")
     cmd.append(new_url)
 
@@ -112,6 +114,7 @@ def prefetch_package(pkg: Dict[str, Any], new_rev: str) -> Optional[str]:
     repo: Optional[str] = pkg.get("repo")
     url: Optional[str] = pkg.get("url")
     script: Optional[str] = pkg.get("script")
+    unpack: bool = pkg.get("unpack", False)
 
     leave_dot_git = pkg.get("leaveDotGit", False)
     deep_clone = pkg.get("deepClone", False)
@@ -123,7 +126,7 @@ def prefetch_package(pkg: Dict[str, Any], new_rev: str) -> Optional[str]:
     if script and url:
         current_rev = pkg.get("rev")
         if current_rev:
-            return prefetch_dynamic_url(url, current_rev, new_rev)
+            return prefetch_dynamic_url(url, current_rev, new_rev, unpack)
 
     if is_git_only:
         git_url = resolve_git_url(pkg)
