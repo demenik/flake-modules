@@ -104,9 +104,29 @@ def run_update(metadata: List[Dict[str, Any]]) -> None:
         new_short = new_rev[:7] if len(new_rev) > 20 else new_rev
 
         if new_rev == current_rev:
-            status = f"{GREEN} Up to date      {RESET}"
-            details = f"{git_url} ({curr_short})"
-            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            new_hash = prefetch_package(pkg, new_rev)
+            if not new_hash:
+                status = f"{RED} Check failed    {RESET}"
+                details = f"Failed to prefetch hash for {git_url}"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
+
+            if new_hash == current_hash:
+                status = f"{GREEN} Up to date      {RESET}"
+                details = f"{git_url} ({curr_short})"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+            else:
+                try:
+                    update_file(
+                        file_path, line, current_rev, current_hash, new_rev, new_hash
+                    )
+                    status = f"{GREEN} Updated hash    {RESET}"
+                    details = f"{git_url} ({curr_short})"
+                    print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                except Exception as e:
+                    status = f"{RED} Update failed   {RESET}"
+                    details = f"Failed to write changes to {file_path}: {e}"
+                    print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
         else:
             new_hash = prefetch_package(pkg, new_rev)
             if not new_hash:
@@ -209,8 +229,16 @@ def run_dry_run(metadata: List[Dict[str, Any]]) -> None:
         new_short = new_rev[:7] if len(new_rev) > 20 else new_rev
 
         if new_rev == current_rev:
-            status = f"{GREEN} Up to date      {RESET}"
-            details = f"{git_url} ({curr_short})"
+            new_hash = prefetch_package(pkg, new_rev)
+            if not new_hash:
+                status = f"{RED} Check failed    {RESET}"
+                details = f"Failed to prefetch hash for {git_url}"
+            elif new_hash == current_hash:
+                status = f"{GREEN} Up to date      {RESET}"
+                details = f"{git_url} ({curr_short})"
+            else:
+                status = f"{RED} Hash mismatch   {RESET}"
+                details = f"{git_url} ({curr_short})"
         else:
             status = f"{YELLOW}󰚰 Update available{RESET}"
             details = f"{git_url} ({curr_short} -> {new_short})"
