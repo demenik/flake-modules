@@ -52,8 +52,14 @@ in rec {
   in
     lib.filterAttrs (n: v: v != null) resolved;
 
-  mkSopsAttrs = scope: declaredSecrets: resolvedSecrets: let
+  mkSopsAttrs = config: scope: declaredSecrets: resolvedSecrets: let
     groupedByUnqualified = lib.groupBy (s: s.name) (lib.attrValues declaredSecrets);
+    defaultSymlinkPath =
+      if config ? sops && config.sops ? defaultSymlinkPath
+      then config.sops.defaultSymlinkPath
+      else if scope == "hm"
+      then "~/.config/sops-nix/secrets"
+      else "/run/secrets";
     sopsEntries =
       lib.mapAttrs (
         qualName: v: let
@@ -75,11 +81,20 @@ in rec {
             if v.key != null
             then v.key
             else decl.name;
+          defaultPath =
+            if lib.hasInfix "/" qualName
+            then "${defaultSymlinkPath}/${lib.replaceStrings ["/"] ["-"] qualName}"
+            else null;
+          path =
+            if applyOverride "decryptedPath" != null
+            then applyOverride "decryptedPath"
+            else defaultPath;
         in
           lib.filterAttrs (name: val: val != null) {
             sopsFile = v.path;
             key = sopsKey;
-            path = applyOverride "decryptedPath";
+            inherit path;
+            name = lib.replaceStrings ["/"] ["-"] qualName;
             mode = applyOverride "mode";
             owner = applyOverride "owner";
             group = applyOverride "group";
@@ -104,7 +119,14 @@ in rec {
           hasUserPrefix = lib.hasPrefix "user/" qualName;
         in
           if isUnique && decl.name != qualName && !hasUserPrefix
-          then {${decl.name} = entry;}
+          then {
+            ${decl.name} =
+              entry
+              // {
+                name = decl.name;
+                path = "${defaultSymlinkPath}/${decl.name}";
+              };
+          }
           else {}
       )
       sopsEntries;
@@ -115,7 +137,7 @@ in rec {
     host,
     users ? [],
     modules,
-  }: let
+  }: {config, ...}: let
     declaredSecrets = getDeclaredSecrets modules;
     hostName =
       if host ? hostname && host.hostname != null
@@ -199,9 +221,9 @@ in rec {
       )
       userSecretBindingsCount;
 
-    sopsAttrsForHost = mkSopsAttrs "nixos" declaredSecrets nixosHostSecrets;
-    sopsAttrsForUser = mkSopsAttrs "nixos" declaredSecrets nixosUserSecrets;
-    sopsAttrsForAliases = mkSopsAttrs "nixos" declaredSecrets userAliases;
+    sopsAttrsForHost = mkSopsAttrs config "nixos" declaredSecrets nixosHostSecrets;
+    sopsAttrsForUser = mkSopsAttrs config "nixos" declaredSecrets nixosUserSecrets;
+    sopsAttrsForAliases = mkSopsAttrs config "nixos" declaredSecrets userAliases;
 
     # Merge secrets: user-specific first, then aliases, then host bindings (host wins conflicts)
     allNixosSopsSecrets = sopsAttrsForUser // sopsAttrsForAliases // sopsAttrsForHost;
@@ -248,7 +270,7 @@ in rec {
     host,
     user,
     modules,
-  }: let
+  }: {config, ...}: let
     declaredSecrets = getDeclaredSecrets modules;
     userSecrets = resolveBindings "User '${user.username}'" declaredSecrets (user.secrets or {});
     hostName =
@@ -287,7 +309,7 @@ in rec {
     sops = {
       age.sshKeyPaths = lib.mkDefault [defaultSshKey];
       gnupg.sshKeyPaths = lib.mkDefault (user.gnupgKeyPaths or []);
-      secrets = mkSopsAttrs "hm" declaredSecrets resolvedSecrets;
+      secrets = mkSopsAttrs config "hm" declaredSecrets resolvedSecrets;
     };
 
     assertions =
