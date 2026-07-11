@@ -64,7 +64,8 @@
                   if builtins.isAttrs prevSet
                   then (prevSet.${name} or null)
                   else null;
-                isDifferent = prevVal == null || val != prevVal;
+                isDifferentTry = builtins.tryEval (prevVal == null || val != prevVal);
+                isDifferent = !isDifferentTry.success || isDifferentTry.value;
               in
                 if isDifferent
                 then let
