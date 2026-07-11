@@ -5,6 +5,8 @@
 pkgs.writeShellApplication {
   name = appName;
   runtimeInputs = with pkgs; [
+    bash
+    findutils
     python3
     git
     nix
