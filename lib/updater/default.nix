@@ -8,6 +8,9 @@ pkgs.writeShellApplication {
     python3
     git
     nix
+    bubblewrap
+    curl
+    gnugrep
   ];
   text = ''
     export FM_UPDATE_APP_NAME="${appName}"

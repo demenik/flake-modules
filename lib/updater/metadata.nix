@@ -13,6 +13,24 @@
   tryGetFetcherInfo = val:
     if !lib.isDerivation val
     then null
+    else if val ? passthru && val.passthru ? fmUpdate
+    then {
+      rev = val.passthru.fmUpdate.version;
+      hash = val.src.outputHash or val.src.hash or val.outputHash or val.hash or "";
+      url =
+        val.src.url or (
+          if val.src ? urls
+          then builtins.head val.src.urls
+          else null
+        );
+      script = val.passthru.fmUpdate.script;
+      owner = null;
+      repo = null;
+      leaveDotGit = false;
+      deepClone = false;
+      fetchSubmodules = false;
+      sparseCheckout = null;
+    }
     else if val ? src && lib.isDerivation val.src
     then tryGetFetcherInfo val.src
     else if val ? rev && (val ? outputHash || val ? hash)
@@ -65,6 +83,7 @@
                         name = fullName;
                         inherit (pos) file line column;
                         inherit (fetcherInfo) rev hash url owner repo leaveDotGit deepClone fetchSubmodules sparseCheckout;
+                        script = fetcherInfo.script or null;
                       }
                     ]
                     else []

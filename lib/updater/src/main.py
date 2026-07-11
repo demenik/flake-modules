@@ -39,17 +39,45 @@ def run_update(metadata: List[Dict[str, Any]]) -> None:
             continue
 
         has_rev_hash = bool(current_rev and current_hash)
-        git_url = resolve_git_url(pkg) if has_rev_hash else None
-        is_supported = bool(git_url)
+        script = pkg.get("script")
 
-        if not is_supported:
-            status = f"{RED} Not supported   {RESET}"
-            if not has_rev_hash:
-                details = "Missing 'rev' or 'hash' attribute"
-            else:
-                details = "Could not resolve Git repository URL"
-            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
-            continue
+        if script:
+            git_url = pkg.get("url")
+            is_supported = bool(git_url)
+            if not is_supported:
+                status = f"{RED} Not supported   {RESET}"
+                details = "Dynamic updater missing 'url' attribute"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
+
+            bwrap_cmd = [
+                "bwrap",
+                "--unshare-user", "--unshare-ipc", "--unshare-pid", "--unshare-uts",
+                "--ro-bind", "/nix/store", "/nix/store",
+                "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
+                "--ro-bind", "/etc/ssl/certs", "/etc/ssl/certs",
+                "--ro-bind", "/etc/static", "/etc/static",
+                "--tmpfs", "/tmp",
+                "--tmpfs", "/home",
+                "--dev", "/dev",
+                "--proc", "/proc",
+                "--", "bash", "-c", script
+            ]
+            head_rev = run_cmd(bwrap_cmd)
+        else:
+            git_url = resolve_git_url(pkg) if has_rev_hash else None
+
+            if not git_url:
+                status = f"{RED} Not supported   {RESET}"
+                if not has_rev_hash:
+                    details = "Missing 'rev' or 'hash' attribute"
+                else:
+                    details = "Could not resolve Git repository URL"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
+
+            # git_url is guaranteed to be a string here
+            head_rev = run_cmd(["git", "ls-remote", str(git_url), "HEAD"])
 
         if file_path:
             file_path = re.sub(r"^/nix/store/[a-z0-9]{32}-[^/]+/", "./", file_path)
@@ -60,7 +88,6 @@ def run_update(metadata: List[Dict[str, Any]]) -> None:
             print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
             continue
 
-        head_rev = run_cmd(["git", "ls-remote", git_url, "HEAD"])
         if not head_rev:
             status = f"{RED} Check failed    {RESET}"
             details = f"Failed to fetch HEAD for {git_url}"
@@ -126,19 +153,46 @@ def run_dry_run(metadata: List[Dict[str, Any]]) -> None:
         current_hash = pkg.get("hash")
 
         has_rev_hash = bool(current_rev and current_hash)
-        git_url = resolve_git_url(pkg) if has_rev_hash else None
-        is_supported = bool(git_url)
+        script = pkg.get("script")
 
-        if not is_supported:
-            status = f"{RED} Not supported   {RESET}"
-            if not has_rev_hash:
-                details = "Missing 'rev' or 'hash' attribute"
-            else:
-                details = "Could not resolve Git repository URL"
-            print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
-            continue
+        if script:
+            git_url = pkg.get("url")
+            is_supported = bool(git_url)
+            if not is_supported:
+                status = f"{RED} Not supported   {RESET}"
+                details = "Dynamic updater missing 'url' attribute"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
 
-        head_rev = run_cmd(["git", "ls-remote", git_url, "HEAD"])
+            bwrap_cmd = [
+                "bwrap",
+                "--unshare-user", "--unshare-ipc", "--unshare-pid", "--unshare-uts",
+                "--ro-bind", "/nix/store", "/nix/store",
+                "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
+                "--ro-bind", "/etc/ssl/certs", "/etc/ssl/certs",
+                "--ro-bind", "/etc/static", "/etc/static",
+                "--tmpfs", "/tmp",
+                "--tmpfs", "/home",
+                "--dev", "/dev",
+                "--proc", "/proc",
+                "--", "bash", "-c", script
+            ]
+            head_rev = run_cmd(bwrap_cmd)
+        else:
+            git_url = resolve_git_url(pkg) if has_rev_hash else None
+
+            if not git_url:
+                status = f"{RED} Not supported   {RESET}"
+                if not has_rev_hash:
+                    details = "Missing 'rev' or 'hash' attribute"
+                else:
+                    details = "Could not resolve Git repository URL"
+                print(f"  {name:<{max_name_len}}  {status}  {GRAY}{details}{RESET}")
+                continue
+
+            # git_url is guaranteed to be a string here
+            head_rev = run_cmd(["git", "ls-remote", str(git_url), "HEAD"])
+
         if not head_rev:
             status = f"{RED} Check failed    {RESET}"
             details = f"Failed to fetch HEAD for {git_url}"
