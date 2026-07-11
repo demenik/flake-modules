@@ -184,23 +184,28 @@ def main() -> None:
         print("FM_UPDATE_SYSTEM environment variable not set.", file=sys.stderr)
         sys.exit(1)
 
-    print("Evaluating configuration overlays...")
-    flake_url = f"path:{os.getcwd()}"
-    expr = f'(builtins.getFlake "{flake_url}").apps.{system}.{app_name}.metadata null'
-    cmd = ["nix", "eval", "--json", "--impure", "--expr", expr]
-    try:
-        res = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=sys.stderr, text=True, check=True
-        )
-        out = res.stdout.strip()
-    except subprocess.CalledProcessError:
-        print("Error evaluating metadata: Nix execution failed.", file=sys.stderr)
-        sys.exit(1)
+    program_path = os.environ.get("FM_UPDATE_PROGRAM_PATH")
+    if not program_path:
+        print("Evaluating configuration overlays...")
+        # Use git+file:// if .git directory exists to avoid path/git hash mismatches
+        flake_url = f"git+file://{os.getcwd()}" if os.path.exists(os.path.join(os.getcwd(), ".git")) else f"path:{os.getcwd()}"
+        expr = f'(builtins.getFlake "{flake_url}").apps.{system}.{app_name}.program'
+        cmd = ["nix", "eval", "--raw", "--impure", "--expr", expr]
+        try:
+            res = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=sys.stderr, text=True, check=True
+            )
+            program_path = res.stdout.strip()
+        except subprocess.CalledProcessError:
+            print("Error evaluating program path: Nix execution failed.", file=sys.stderr)
+            sys.exit(1)
 
+    metadata_file = os.path.join(os.path.dirname(os.path.dirname(program_path)), "metadata.json")
     try:
-        metadata = json.loads(out)
+        with open(metadata_file, "r") as f:
+            metadata = json.load(f)
     except Exception as e:
-        print(f"Failed to parse metadata JSON: {e}", file=sys.stderr)
+        print(f"Failed to read metadata JSON from {metadata_file}: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Deduplicate metadata by package definition coordinates

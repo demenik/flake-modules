@@ -36,11 +36,19 @@
     overlays = allOverlays;
     repoRoot = toString inputs.self.outPath;
   };
+
   overlayUpdatePkg = import ./default.nix {
     inherit pkgs appName;
   };
+  overlayUpdatePkgWithMetadata =
+    pkgs.runCommand "${appName}-wrapped" {
+      metadataJson = builtins.toJSON updaterMetadata;
+    } ''
+      mkdir -p $out/bin
+      ln -s ${overlayUpdatePkg}/bin/${appName} $out/bin/${appName}
+      echo -n "$metadataJson" > $out/metadata.json
+    '';
 in {
   type = "app";
-  program = "${overlayUpdatePkg}/bin/${appName}";
-  metadata = _: updaterMetadata;
+  program = "${overlayUpdatePkgWithMetadata}/bin/${appName}";
 }
