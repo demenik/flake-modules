@@ -405,6 +405,17 @@ flake-modules.lib.queryHost {
 }
 ```
 
+### 3. Gating Configuration on Loaded Modules
+`config.flake-modules.isModuleLoaded` is a function exported on every generated NixOS and Home Manager configuration. It takes a module `name` and returns `true` if that module is transitively resolved into the configuration. This is useful for gating configuration that should only apply when a given module is present:
+
+```nix
+{config, lib, ...}: {
+  config = lib.mkIf (config.flake-modules.isModuleLoaded "neovim") {
+    home.sessionVariables.EDITOR = "nvim";
+  };
+}
+```
+
 ## Extensible Host Builders (e.g. `nix-darwin` or `wsl`)
 
 The framework is modular and allows users to register custom host builders via the `customBuilders` option in `mkNixosConfigurations` or `mkHost`. By default, the `"nixos"` builder is registered for systems targeting Linux. Systems ending in `"darwin"` will be dispatched to a `"darwin"` builder, which can be supplied via `customBuilders`.

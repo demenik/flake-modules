@@ -19,6 +19,14 @@
       inherit (val) usedBy required description;
     }) (secrets.getDeclaredSecrets modules);
   };
+
+  isModuleLoadedOption = lib.mkOption {
+    type = lib.types.functionTo lib.types.bool;
+    readOnly = true;
+    description = "Introspection: Checks whether a module with the given name is loaded in this configuration. Usable to gate configuration (e.g. in user dotfiles) on a module's presence.";
+  };
+
+  isModuleLoaded = modules: name: lib.any (m: m.name == name) modules;
 in {
   mkNixosIntrospection = {
     host,
@@ -52,11 +60,13 @@ in {
         readOnly = true;
         description = "Introspection: Host secrets.";
       };
+      isModuleLoaded = isModuleLoadedOption;
     };
     config.flake-modules =
       (getMetadata {inherit host modules secrets;})
       // {
         users = map (u: u.username) users;
+        isModuleLoaded = isModuleLoaded modules;
       };
   };
 
@@ -92,11 +102,13 @@ in {
         readOnly = true;
         description = "Introspection: HM secrets.";
       };
+      isModuleLoaded = isModuleLoadedOption;
     };
     config.flake-modules =
       (getMetadata {inherit host modules secrets;})
       // {
         user = user.username;
+        isModuleLoaded = isModuleLoaded modules;
       };
   };
 }
